@@ -1,0 +1,173 @@
+:root {
+  --rojo: #b3261e;
+  --rojo-claro: #fdecea;
+  --naranja: #c77700;
+  --naranja-claro: #fff4e0;
+  --verde: #1e7a34;
+  --verde-claro: #e9f7ec;
+  --gris-oscuro: #3a3a3a;
+  --gris-claro: #f1f1f3;
+  --borde: #d8d8dc;
+  color-scheme: light dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #fafafa;
+  color: #222;
+}
+
+header {
+  background: var(--rojo);
+  color: white;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+header h1 { margin: 0 0 4px; font-size: 1.8rem; }
+header p { margin: 0; opacity: 0.9; }
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.formulario {
+  background: white;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.formulario label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.fila-formulario {
+  display: flex;
+  gap: 8px;
+}
+
+.fila-formulario input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: "Courier New", monospace;
+}
+
+.fila-formulario button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  background: var(--rojo);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.fila-formulario button:hover { background: #8f1e18; }
+.fila-formulario button:disabled { background: #bbb; cursor: wait; }
+
+.ayuda {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.ayuda code {
+  background: var(--gris-claro);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.resumen {
+  display: flex;
+  justify-content: space-between;
+  background: white;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.resumen .etiqueta {
+  display: block;
+  font-size: 0.75rem;
+  color: #777;
+  text-transform: uppercase;
+}
+
+.resumen strong { font-size: 1.3rem; }
+
+.historial {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vacio {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}
+
+.tarjeta {
+  border-radius: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  background: var(--gris-claro);
+  color: var(--gris-oscuro);
+}
+
+.tarjeta .encabezado {
+  margin: 0 0 4px;
+  font-weight: bold;
+  font-family: "Courier New", monospace;
+}
+
+.tarjeta .detalle {
+  margin: 2px 0;
+  font-size: 0.92rem;
+}
+
+.tarjeta.aceptado {
+  background: var(--verde-claro);
+  border-color: var(--verde);
+  color: #14401f;
+}
+
+.tarjeta.alerta {
+  background: var(--rojo-claro);
+  border-color: var(--rojo);
+  color: #5c140f;
+}
+
+.tarjeta.advertencia {
+  background: var(--naranja-claro);
+  border-color: var(--naranja);
+  color: #5c3c00;
+}
+
+.tarjeta.rechazado {
+  background: #ececec;
+  border-color: #999;
+  color: #3a3a3a;
+}
+
+@media (prefers-color-scheme: dark) {
+  body { background: #17181a; color: #eee; }
+  .formulario, .resumen { background: #1f2022; border-color: #333; }
+  .fila-formulario input { background: #111; color: #eee; border-color: #444; }
+  .ayuda code { background: #2a2b2d; }
+  .tarjeta { background: #2a2b2d; border-color: #444; color: #ddd; }
+}

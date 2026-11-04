@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cardio Guard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Cardio Guard</h1>
+  <p>Intérprete para el monitoreo de presión arterial y frecuencia cardíaca</p>
+</header>
+
+<main>
+  <section class="formulario">
+    <label for="instruccion">Instrucción</label>
+    <div class="fila-formulario">
+      <input
+        type="text"
+        id="instruccion"
+        autocomplete="off"
+        placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
+      >
+      <button id="enviar">Procesar</button>
+    </div>
+    <p class="ayuda">
+      Ejemplos: <code>REGISTRAR P001, 45, M, O+</code> &nbsp;|&nbsp; <code>P001; 118/76, 75</code>
+    </p>
+  </section>
+
+  <section class="resumen" id="resumen">
+    <div><span class="etiqueta">Procesadas</span><strong id="r-total">0</strong></div>
+    <div><span class="etiqueta">Aceptadas</span><strong id="r-aceptadas">0</strong></div>
+    <div><span class="etiqueta">Con alerta</span><strong id="r-alerta">0</strong></div>
+    <div><span class="etiqueta">Rechazadas</span><strong id="r-rechazadas">0</strong></div>
+  </section>
+
+  <section class="historial" id="historial">
+    <p class="vacio" id="historial-vacio">Aún no se ha procesado ninguna instrucción.</p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
