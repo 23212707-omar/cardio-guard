@@ -1,0 +1,12 @@
+{
+  "name": "cardio-guard",
+  "version": "1.0.0",
+  "description": "Interprete para el monitoreo de presion arterial y frecuencia cardiaca en entornos hospitalarios",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
