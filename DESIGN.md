@@ -105,6 +105,16 @@ components:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.rech-texto}"
     rounded: "{rounded.pastilla}"
+  etiqueta-crisis:
+    backgroundColor: "{colors.alerta-solido}"
+    textColor: "{colors.marca-texto}"
+    rounded: "{rounded.sm}"
+    padding: "0.25rem 0.75rem 0.25rem 0.5rem"
+  etiqueta-sospechoso:
+    backgroundColor: "{colors.adv-fondo}"
+    textColor: "{colors.adv-texto}"
+    rounded: "{rounded.sm}"
+    padding: "0.25rem 0.75rem 0.25rem 0.5rem"
   tarjeta-bitacora:
     backgroundColor: "{colors.rech-fondo}"
     textColor: "{colors.rech-texto}"
@@ -148,8 +158,14 @@ Paleta neutra fría, una marca y cuatro colores de estado reservados.
 ### Contrastes medidos (WCAG AA)
 Texto: tinta suave sobre panel 7.4:1 (claro) y 7.9:1 (oscuro); texto de marca sobre marca 9.5:1 y 8.2:1; texto de alerta sólida 6.5:1 y 8.1:1; enlace del pie 9.5:1 y 7.8:1; texto en hover de pestañas 5.6:1 (tinta suave, claro) y 7.5:1 (tinta, oscuro). Bordes de campo contra panel 4.6:1 en ambos modos (mínimo 3:1 para controles).
 
+Etiquetas clínicas (claro / oscuro), medidas sobre los tres fondos donde se usan: fila de la tabla (panel), ficha y tarjeta de bitácora (ambas sobre fondo verde `ok-fondo`).
+- `CRISIS HIPERTENSIVA`: texto e icono sobre su relleno 6.5:1 / 8.1:1; relleno y borde contra panel 6.5:1 / 6.9:1 y contra `ok-fondo` 5.8:1 / 6.3:1.
+- `DATO SOSPECHOSO`: texto e icono sobre su fondo 11.0:1 / 11.6:1; borde contra panel 6.4:1 / 8.4:1 y contra `ok-fondo` 5.6:1 / 7.6:1.
+- Textos de apoyo de la tabla y la ficha: tinta sobre panel 16.1:1 / 13.4:1; tinta suave sobre panel 7.4:1 / 7.9:1; tinta suave sobre `ok-fondo` 6.5:1 / 7.1:1; texto verde sobre `ok-fondo` 10.8:1 / 11.2:1.
+Todo supera 4.5:1 en texto y 3:1 en bordes, sin cambiar ningún token.
+
 ### Named Rules
-**The Reserved Red Rule.** El rojo solo significa alerta. No se usa para errores de formulario, borrar, énfasis ni decoración. Los errores de entrada van en gris (rechazado).
+**The Reserved Red Rule.** El rojo solo significa alerta. No se usa para errores de formulario, borrar, énfasis ni decoración. Los errores de entrada van en gris (rechazado), incluido el bloque del `^`. La única otra aparición del rojo es la etiqueta `CRISIS HIPERTENSIVA`, que nombra esa misma condición clínica.
 **The Four Meanings Rule.** Verde, rojo, naranja y gris solo expresan estado; la marca (azul petróleo) nunca se mezcla con ellos.
 **The Never Color Alone Rule.** Cada estado = color + icono + texto.
 
@@ -169,7 +185,7 @@ Escala: 0.8125 / 0.875 / 1 / 1.125 / 1.375 / 1.75 rem. Cifras con `tabular-nums`
 
 ## Layout
 
-Una columna centrada, ancho máximo 46rem, relleno 1.5rem × 1rem (0.75rem en móvil ≤ 30rem). Espaciado en escala de 0.25 a 3rem (`--esp-1`…`--esp-7`); grupos relacionados a 0.5–0.75rem, bloques separados a 1–1.5rem. Cabecera en banda de marca; pie pegado al borde inferior con la nota orientativa (pasa a pie normal con altura < 30rem). Cuadrículas con `auto-fit`; el resumen pasa de 4 a 2 columnas en móvil; las pestañas se mantienen en una fila y el texto baja de línea dentro de cada una. Objetivos táctiles de 44 px mínimo. Revisado en 375, 768 y 1280 px, claro y oscuro, sin desborde horizontal.
+Una columna centrada, ancho máximo 46rem, relleno 1.5rem × 1rem (0.75rem en móvil ≤ 30rem). Espaciado en escala de 0.25 a 3rem (`--esp-1`…`--esp-7`); grupos relacionados a 0.5–0.75rem, bloques separados a 1–1.5rem. Cabecera en banda de marca; pie pegado al borde inferior con la nota orientativa (pasa a pie normal con altura < 30rem). Cuadrículas con `auto-fit`; el resumen pasa de 4 a 2 columnas en móvil; las cinco pestañas se mantienen en una fila (letra de 0.8125rem hasta 30rem y 0.75rem hasta 22rem, con márgenes más ajustados a 320 px). Objetivos táctiles de 44 px mínimo. Revisado en 375, 768 y 1280 px, claro y oscuro, sin desborde horizontal; pestañas, tabla de listado y fechas con hora comprobadas también a 320 px.
 
 ## Elevation & Depth
 
@@ -191,7 +207,20 @@ Borde de 2 px del color de estado y fondo tenue; cabecera con insignia, ID en mo
 Más reciente arriba. Borde y fondo del estado; insignia, ID, número de línea (dos dígitos), instrucción en mono y detalles plegables (`<details>`). La alerta es más grande (relleno de 1rem, borde de 3 px). La lista se filtra por estado sin alterar los contadores.
 
 ### Pestañas de captura
-ARIA tabs: "Registrar paciente", "Registrar lectura", "Instrucción directa". Flechas, Inicio y Fin navegan. Activa: subrayado de marca de 4 px y peso 600 (no solo color). Los campos solo arman el texto; no validan.
+ARIA tabs, cinco: "Registro" (paciente), "Lectura", "Consultar", "Listar" y "Directa". Los nombres completos van en el `title`. Flechas, Inicio y Fin navegan. Activa: subrayado de marca de 4 px y peso 600 (no solo color). Los campos solo arman el texto; no validan. "Consultar" tiene un campo de ID con `<datalist>`; "Listar" no tiene campos, solo una nota y el botón Procesar (la vista previa muestra `LISTAR`). El datalist de ID se alimenta de los pacientes de la sesión y de `resultado.pacientes` de `LISTAR`.
+
+### Etiquetas clínicas
+Rectángulo de 4 px de radio, borde de 2 px, texto en mayúsculas de 0.8125rem y peso 700, con icono de trazo: `CRISIS HIPERTENSIVA` (octágono-exclamación, relleno rojo, texto claro) y `DATO SOSPECHOSO` (triángulo, fondo y borde naranja). Pueden aparecer juntas. Cada una lleva su propio fondo y borde, así se lee igual sobre la fila de la tabla, la ficha y la tarjeta.
+**Regla de uso:** la etiqueta describe la última revisión guardada del paciente y solo aparece en `CONSULTAR` y `LISTAR` (ficha, tarjeta de bitácora y fila de la tabla). No es el estado de la instrucción: el panel conserva su insignia verde «Aceptado». No se anima, no abre `role="alert"` y no sustituye a la ALERTA ROJA, que sigue siendo exclusiva del registro de una lectura en crisis. Siempre icono y texto, nunca solo color.
+
+### Bloque del marcador "^"
+Para rechazos léxicos y sintácticos: bloque monoespaciado (`<pre>`, IBM Plex Mono) con la instrucción tal como llegó y debajo una línea que termina en `^` bajo el carácter exacto del error. `white-space: pre`, sin ajuste de línea y sin recortar espacios (el `^` se desalinearía); si es largo, se desplaza dentro del bloque y es enfocable con teclado. Va en gris de rechazo, nunca en rojo. El motivo se escribe aparte, como texto normal bajo el bloque. Se usa en el panel, la tarjeta de bitácora y el ejemplo de la ayuda.
+
+### Tabla de listado
+Resultado de `LISTAR`: tabla con columnas ID (mono), Edad, Sexo, Sangre, Última revisión (presión y frecuencia, con la fecha y hora debajo) y Clasificación (categoría de presión, categoría de frecuencia «FC: …» y las etiquetas clínicas). Sobre panel, bordes de 1 px entre filas, encabezados en etiqueta de 0.8125rem, cifras con `tabular-nums`. Va en un contenedor desplazable en horizontal y enfocable (`role="region"`), así la página nunca desborda; la fecha con hora no se parte (`white-space: nowrap`). Pacientes sin lectura muestran «Sin revisiones». Sin pacientes: estado vacío con borde discontinuo, el texto «No hay pacientes registrados.» y el atajo «Registrar un paciente». Bajo la tabla va la nota orientativa.
+
+### Ficha de paciente
+Resultado de `CONSULTAR`: panel verde de estado aceptado con las etiquetas clínicas arriba (si las hay), cuadrícula de datos (edad, sexo, sangre, presión, frecuencia con su categoría y clasificación de presión), fecha y hora de la última revisión y la nota orientativa. Sin lecturas: «Sin revisiones registradas todavía.».
 
 ### Otros
 Botón primario (marca, 44 px, estado "Procesando…" con giro), chips de ejemplo, filtros activos con relleno de marca, resumen de sesión con una marca de color sobre cada cifra, ayuda plegable y pantalla «Acerca de».
@@ -205,13 +234,18 @@ Botón primario (marca, 44 px, estado "Procesando…" con giro), chips de ejempl
 - **Do** medir el contraste de todo color nuevo (4.5:1 texto, 3:1 controles) en claro y oscuro.
 - **Do** mantener la interfaz en español y aplicar `overflow-wrap: anywhere` a los textos que vienen del servidor.
 - **Do** marcar como PENDIENTE lo que dependa de un endpoint inexistente.
+- **Do** mantener separados el estado de la instrucción y la etiqueta clínica: `CONSULTAR` y `LISTAR` siguen en verde aunque el paciente tenga una etiqueta.
+- **Do** explicar que las categorías de presión vienen de la NOM-030-SSA2-2017 y que «Crisis hipertensiva» se conserva por encima del grado 3 porque dispara la ALERTA ROJA.
 
 ### Don't:
 - **Don't** usar los cuatro colores de estado como decoración o para la marca.
 - **Don't** añadir historial, gráficas de tendencia ni datos que la API no entrega.
+- **Don't** pintar de rojo o naranja el estado de una consulta o listado por la etiqueta clínica, ni usar las etiquetas fuera de `CONSULTAR` y `LISTAR`.
 - **Don't** animar la alerta; el resto, máximo 150 ms y respetando `prefers-reduced-motion`.
 - **Don't** usar bordes laterales de color, degradados, texto degradado ni sombras duras.
 
 ## Pantallas pendientes
 
-- **Lista de pacientes** y **ficha de paciente**: PENDIENTES. Dependen de `GET /api/pacientes` y `GET /api/pacientes/:id`, que aún no existen. No hay pantallas ni enlaces hacia ellas en `public/`; el único rastro es un `TODO` en `app.js` junto a la lista de sugerencias de ID. Cuando existan los endpoints, la ficha mostrará solo la última revisión (sin historial ni tendencias).
+- **Pantallas propias de lista y ficha de paciente**: PENDIENTES. Dependen de `GET /api/pacientes` y `GET /api/pacientes/:id`, que aún no existen. Hoy la ficha y la tabla son resultados de `CONSULTAR` y `LISTAR` (vía `POST /api/procesar`), no pantallas con ruta ni enlaces propios.
+- **Sugerencias de ID desde el inicio**: PENDIENTE. Hoy el datalist solo conoce los pacientes de la sesión y los que devuelve `LISTAR`; con `GET /api/pacientes` se llenaría al cargar, incluidos los de sesiones anteriores. El único rastro es un `TODO` en `app.js`.
+- Cuando existan los endpoints, la ficha seguirá mostrando solo la última revisión (sin historial ni tendencias).

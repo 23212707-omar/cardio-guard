@@ -23,9 +23,12 @@
   <section class="formulario" aria-labelledby="captura-titulo">
     <h2 class="solo-lector" id="captura-titulo">Captura de instrucción</h2>
     <div class="pestanas" role="tablist" aria-label="Tipo de captura">
-      <button type="button" class="pestana" role="tab" id="tab-registro" aria-controls="panel-registro" aria-selected="true" tabindex="0" data-captura="registro">Registrar paciente</button>
-      <button type="button" class="pestana" role="tab" id="tab-lectura" aria-controls="panel-lectura" aria-selected="false" tabindex="-1" data-captura="lectura">Registrar lectura</button>
-      <button type="button" class="pestana" role="tab" id="tab-directa" aria-controls="panel-directa" aria-selected="false" tabindex="-1" data-captura="directa">Instrucción directa</button>
+      <!-- Etiquetas cortas para que las 5 quepan en una fila a 320 px; el título (tooltip) da el nombre completo. -->
+      <button type="button" class="pestana" role="tab" id="tab-registro" aria-controls="panel-registro" aria-selected="true" tabindex="0" data-captura="registro" title="Registrar paciente">Registro</button>
+      <button type="button" class="pestana" role="tab" id="tab-lectura" aria-controls="panel-lectura" aria-selected="false" tabindex="-1" data-captura="lectura" title="Registrar lectura">Lectura</button>
+      <button type="button" class="pestana" role="tab" id="tab-consultar" aria-controls="panel-consultar" aria-selected="false" tabindex="-1" data-captura="consultar" title="Consultar un paciente">Consultar</button>
+      <button type="button" class="pestana" role="tab" id="tab-listar" aria-controls="panel-listar" aria-selected="false" tabindex="-1" data-captura="listar" title="Listar todos los pacientes">Listar</button>
+      <button type="button" class="pestana" role="tab" id="tab-directa" aria-controls="panel-directa" aria-selected="false" tabindex="-1" data-captura="directa" title="Instrucción directa">Directa</button>
     </div>
 
     <!-- Los campos solo arman el texto de la instrucción: no validan nada.
@@ -74,6 +77,17 @@
         </div>
       </div>
 
+      <div role="tabpanel" id="panel-consultar" aria-labelledby="tab-consultar" data-captura="consultar" hidden>
+        <div class="campo">
+          <label for="con-id">ID del paciente</label>
+          <input type="text" id="con-id" data-nombre="ID" list="lista-pacientes" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+        </div>
+      </div>
+
+      <div role="tabpanel" id="panel-listar" aria-labelledby="tab-listar" data-captura="listar" hidden>
+        <p class="panel-nota">Muestra todos los pacientes registrados con su última revisión. No necesita datos: pulsa «Procesar».</p>
+      </div>
+
       <div role="tabpanel" id="panel-directa" aria-labelledby="tab-directa" data-captura="directa" hidden>
         <div class="campo">
           <label for="instruccion">Instrucción</label>
@@ -91,6 +105,8 @@
           <ul class="chips" aria-labelledby="ejemplos-titulo">
             <li><button type="button" class="chip" data-ejemplo="REGISTRAR P001, 45, M, O+">REGISTRAR P001, 45, M, O+</button></li>
             <li><button type="button" class="chip" data-ejemplo="P001; 118/76, 75">P001; 118/76, 75</button></li>
+            <li><button type="button" class="chip" data-ejemplo="CONSULTAR P001">CONSULTAR P001</button></li>
+            <li><button type="button" class="chip" data-ejemplo="LISTAR">LISTAR</button></li>
           </ul>
         </div>
       </div>
@@ -144,6 +160,29 @@
         <div><dt>Presión</dt><dd>Sistólica y diastólica en mmHg, separadas por <code>/</code> (<code>118/76</code>).</dd></div>
         <div><dt>Frecuencia</dt><dd>Frecuencia cardíaca, después de una coma (<code>75</code>).</dd></div>
       </dl>
+
+      <h2 class="ayuda-titulo">Consultar un paciente</h2>
+      <p><code>CONSULTAR P001</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>ID</dt><dd>El paciente a consultar. Muestra su ficha y su última revisión; no cambia ningún dato. Si el ID no existe, la instrucción se rechaza.</dd></div>
+      </dl>
+
+      <h2 class="ayuda-titulo">Listar los pacientes</h2>
+      <p><code>LISTAR</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>Sin datos</dt><dd>Se escribe sola. Muestra una tabla con todos los pacientes y su última revisión; sin pacientes, avisa que no hay ninguno.</dd></div>
+      </dl>
+      <p>Las pestañas <strong>Consultar</strong> y <strong>Listar</strong> arman estas mismas instrucciones.</p>
+
+      <h2 class="ayuda-titulo">Un error en la instrucción</h2>
+      <p>Si falla la lectura o la estructura, la instrucción se rechaza y una marca <code>^</code> señala dónde:</p>
+      <pre class="diagnostico" role="region" tabindex="0" aria-label="Ejemplo de instrucción con marcador de error">P001; 118#76, 75
+         ^ símbolo no reconocido "#"</pre>
+      <p>Los valores se conservan en los campos para que puedas corregirlos.</p>
+
+      <h2 class="ayuda-titulo">Estado de la instrucción y etiqueta clínica</h2>
+      <p>Son dos cosas distintas. El <strong>estado</strong> dice qué pasó con la instrucción (aceptada, alerta, advertencia o rechazada). La <strong>etiqueta clínica</strong> describe la última revisión del paciente: <strong>CRISIS HIPERTENSIVA</strong> o <strong>DATO SOSPECHOSO</strong>.</p>
+      <p>Por eso <code>CONSULTAR P001</code> o <code>LISTAR</code> quedan <em>Aceptado</em> (verde) aunque el paciente muestre una etiqueta: la consulta se hizo bien, y la etiqueta recuerda lo que registró su última lectura. La alerta roja solo aparece al registrar una lectura en crisis.</p>
 
       <h2 class="ayuda-titulo">Qué significa cada estado</h2>
       <ul class="ayuda-estados">

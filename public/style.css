@@ -319,6 +319,11 @@ main {
 
 [hidden] { display: none !important; }
 
+.panel-nota {
+  margin: 0;
+  color: var(--tinta-suave);
+}
+
 /* Campos de la captura */
 .campos {
   display: grid;
@@ -994,6 +999,34 @@ main {
   font-weight: 600;
 }
 
+/* Marcador "^" de errores léxicos y sintácticos. white-space: pre y sin ajuste
+   de línea: el "^" debe caer bajo el carácter exacto (el desborde se desplaza
+   dentro del bloque). Gris de rechazo; el rojo es solo para alerta. */
+.diagnostico {
+  margin: var(--esp-2) 0;
+  padding: var(--esp-2) var(--esp-3);
+  overflow-x: auto;
+  border: 1px solid var(--rech-borde);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+  font-family: var(--fuente-mono);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+  white-space: pre;
+  tab-size: 8;
+}
+
+.tarjeta .diagnostico { margin: var(--esp-1) 0 var(--esp-2); }
+
+.ultimo-bloque .ultimo-motivo + .diagnostico + .ultimo-motivo,
+.detalle + .diagnostico + .ultimo-motivo { margin-top: var(--esp-1); }
+
+.tarjeta .ultimo-motivo {
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
+}
+
 .ultimo-sospechoso {
   margin: 0 0 var(--esp-3);
   padding: var(--esp-2) var(--esp-3);
@@ -1030,6 +1063,125 @@ main {
   line-height: 1.3;
 }
 
+/* ---------- CONSULTAR / LISTAR ----------
+   Etiquetas clínicas: icono + texto, independientes del estado de la
+   instrucción (que sigue en verde). Cada variante lleva su propio fondo y
+   borde, así se leen igual sobre la ficha verde, la fila de la tabla y la
+   tarjeta de la bitácora. */
+.etiquetas-clinicas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1) var(--esp-2);
+  margin: 0 0 var(--esp-3);
+}
+
+.etiqueta-clinica {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  max-width: 100%;
+  padding: var(--esp-1) var(--esp-3) var(--esp-1) var(--esp-2);
+  border: 2px solid var(--et-borde);
+  border-radius: var(--radio-sm);
+  background: var(--et-fondo);
+  color: var(--et-texto);
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+
+.etiqueta-icono {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: var(--et-texto);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.etiqueta-crisis {
+  --et-fondo: var(--alerta-solido);
+  --et-texto: var(--alerta-solido-texto);
+  --et-borde: var(--alerta-solido);
+}
+
+.etiqueta-sospechoso {
+  --et-fondo: var(--adv-fondo);
+  --et-texto: var(--adv-texto);
+  --et-borde: var(--adv-borde);
+}
+
+.tarjeta > .etiquetas-clinicas { margin: var(--esp-2) 0 0; }
+
+.nota-orientativa {
+  margin: var(--esp-3) 0 0;
+  font-size: var(--texto-xs);
+  color: var(--tinta-suave);
+}
+
+.ultimo-resultado .nota-orientativa { color: var(--u-texto); }
+
+.listado-vacio {
+  padding: var(--esp-4);
+  border: 1px dashed var(--u-borde);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+  text-align: center;
+}
+
+.listado-vacio p { margin: 0 0 var(--esp-2); }
+
+/* La tabla se desplaza dentro de su caja: la página nunca desborda */
+.tabla-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--u-borde);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+}
+
+.tabla-pacientes {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  font-size: var(--texto-sm);
+}
+
+.tabla-pacientes th,
+.tabla-pacientes td {
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--borde);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabla-pacientes thead th {
+  font-size: var(--texto-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  white-space: nowrap;
+}
+
+.tabla-pacientes tbody tr:last-child > * { border-bottom: 0; }
+.tabla-pacientes .col-id { font-family: var(--fuente-mono); font-weight: 600; white-space: nowrap; }
+.tabla-pacientes .col-num { font-variant-numeric: tabular-nums; }
+.tabla-pacientes .col-rev { min-width: 11rem; }
+.tabla-pacientes .col-clas { min-width: 11rem; }
+.tabla-pacientes .rev-valores,
+.tabla-pacientes .rev-fecha,
+.tabla-pacientes .clas-linea { display: block; }
+.tabla-pacientes .rev-valores { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabla-pacientes .rev-fecha,
+.tabla-pacientes .clas-fc,
+.tabla-pacientes .sin-revision { font-size: var(--texto-xs); color: var(--tinta-suave); }
+.tabla-pacientes .etiquetas-clinicas { margin: var(--esp-1) 0 0; }
+
 /* ---------- Adaptación mínima ---------- */
 @media (max-width: 30rem) {
   .boton-enviar { width: 100%; }
@@ -1042,8 +1194,9 @@ main {
   .pestana {
     flex: 1 1 0;
     min-width: 0;
-    padding-inline: var(--esp-1);
-    font-size: var(--texto-sm);
+    padding-inline: 0;
+    font-size: var(--texto-xs);
+    letter-spacing: -0.01em;
     line-height: 1.25;
     text-wrap: balance;
   }
@@ -1064,9 +1217,11 @@ main {
 /* Ventanas muy estrechas (320 px con zoom, 200 %): la alerta sigue siendo lo
    más grande, pero cabe en su caja. */
 @media (max-width: 22rem) {
-  /* Con tres pestañas en fila las palabras largas se saldrían: se apilan */
-  .pestanas { flex-wrap: wrap; }
-  .pestana { flex: 1 1 100%; }
+  /* Las 5 pestañas siguen en una fila a 320 px: tipografía y márgenes más
+     ajustados (las etiquetas ya son cortas). */
+  main { padding-inline: var(--esp-2); }
+  .formulario { padding: var(--esp-2); }
+  .pestana { font-size: 0.75rem; letter-spacing: -0.02em; }
   .ultimo-alerta .ultimo-cabecera { padding: var(--esp-3); }
   .ultimo-alerta .insignia { font-size: var(--texto-base); }
   .ultimo-alerta .insignia-icono { width: 1.5rem; height: 1.5rem; }
