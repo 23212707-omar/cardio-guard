@@ -302,36 +302,90 @@ function agregarTarjeta(lineasBitacora, estado) {
   historial.prepend(tarjeta);
 }
 
+// ---------- Captura por campos ----------
+// Los campos NO validan reglas clínicas ni de formato: solo arman el texto de
+// la instrucción (la misma que se escribiría a mano) y la mandan por el mismo
+// POST. El intérprete (src/) es quien rechaza valores inválidos. La única
+// comprobación aquí es que no haya campos vacíos.
+
 const textoBoton = document.getElementById('enviar-texto');
 const errorLinea = document.getElementById('error-instruccion');
+const formulario = document.getElementById('captura');
+const vistaPrevia = document.getElementById('vista-previa');
+const vistaPreviaTexto = document.getElementById('vista-previa-texto');
+const pestanas = Array.from(document.querySelectorAll('.pestana'));
 
-function mostrarError(mensaje) {
+// `campos`: ids de los inputs, en el orden de la instrucción.
+// `armar`: solo concatena con el formato fijo; no interpreta ni corrige.
+// `conservar`: posiciones que no se limpian tras un envío aceptado.
+const CAPTURAS = {
+  registro: {
+    campos: ['reg-id', 'reg-edad', 'reg-sexo', 'reg-sangre'],
+    armar: (v) => `REGISTRAR ${v[0]}, ${v[1]}, ${v[2]}, ${v[3]}`,
+    conservar: [],
+  },
+  lectura: {
+    campos: ['lec-id', 'lec-sis', 'lec-dia', 'lec-fc'],
+    armar: (v) => `${v[0]}; ${v[1]}/${v[2]}, ${v[3]}`,
+    conservar: [0], // varias lecturas seguidas del mismo paciente
+  },
+  directa: {
+    campos: ['instruccion'],
+    armar: (v) => v[0],
+    conservar: [],
+  },
+};
+
+let capturaActiva = 'registro';
+
+function inputsDe(nombre) {
+  return CAPTURAS[nombre].campos.map((id) => document.getElementById(id));
+}
+
+function valoresDe(nombre) {
+  return inputsDe(nombre).map((input) => input.value.trim());
+}
+
+function actualizarVistaPrevia() {
+  const esDirecta = capturaActiva === 'directa';
+  vistaPrevia.hidden = esDirecta; // en la directa el campo ya es el texto
+  if (esDirecta) return;
+  const valores = valoresDe(capturaActiva).map((v) => v || '…');
+  vistaPreviaTexto.textContent = CAPTURAS[capturaActiva].armar(valores);
+}
+
+function mostrarError(mensaje, camposInvalidos = []) {
   errorLinea.textContent = mensaje;
-  inputInstruccion.setAttribute('aria-invalid', 'true');
+  for (const input of camposInvalidos) input.setAttribute('aria-invalid', 'true');
 }
 
 function limpiarError() {
   errorLinea.textContent = '';
-  inputInstruccion.removeAttribute('aria-invalid');
+  formulario.querySelectorAll('[aria-invalid]').forEach((i) => i.removeAttribute('aria-invalid'));
+}
+
+function activarPestana(nombre, enfocar) {
+  capturaActiva = nombre;
+  for (const tab of pestanas) {
+    const activa = tab.dataset.captura === nombre;
+    tab.setAttribute('aria-selected', String(activa));
+    tab.tabIndex = activa ? 0 : -1;
+    if (activa && enfocar) tab.focus();
+    document.getElementById(tab.getAttribute('aria-controls')).hidden = !activa;
+  }
+  limpiarError();
+  actualizarVistaPrevia();
 }
 
 function ponerCargando(cargando) {
   botonEnviar.disabled = cargando;
   botonEnviar.classList.toggle('cargando', cargando);
-  inputInstruccion.readOnly = cargando;
-  inputInstruccion.closest('.formulario').setAttribute('aria-busy', String(cargando));
+  formulario.querySelectorAll('input').forEach((i) => { i.readOnly = cargando; });
+  formulario.closest('.formulario').setAttribute('aria-busy', String(cargando));
   textoBoton.textContent = cargando ? 'Procesando…' : 'Procesar';
 }
 
-async function enviarInstruccion() {
-  if (botonEnviar.disabled) return; // ya hay un envío en curso
-  const texto = inputInstruccion.value.trim();
-  if (!texto) {
-    mostrarError('Escribe una instrucción antes de procesar.');
-    inputInstruccion.focus();
-    return;
-  }
-
+async function enviarTexto(texto, captura) {
   limpiarError();
   numeroLinea += 1;
   ponerCargando(true);
@@ -355,14 +409,51 @@ async function enviarInstruccion() {
     mostrarUltimo(datos.resultado, datos.lineasBitacora, texto);
     agregarTarjeta(datos.lineasBitacora, datos.resultado.estado);
     actualizarResumen(datos.contadores);
-    inputInstruccion.value = '';
-    inputInstruccion.focus();
+    limpiarTrasEnvio(captura, datos.resultado.estado);
   } catch (err) {
     mostrarError('No se pudo conectar con el servidor. Revisa que esté en marcha e inténtalo de nuevo.');
     numeroLinea -= 1;
   } finally {
     ponerCargando(false);
   }
+}
+
+// Aceptado: se limpian los campos (menos los que se conservan) y se enfoca el
+// primero. Rechazado: se conservan los valores para poder corregirlos.
+// La instrucción directa se limpia siempre, como antes.
+function limpiarTrasEnvio(nombre, estado) {
+  const inputs = inputsDe(nombre);
+  const limpiar = nombre === 'directa' || estado !== 'RECHAZADO';
+  if (limpiar) {
+    inputs.forEach((input, i) => {
+      if (!CAPTURAS[nombre].conservar.includes(i)) input.value = '';
+    });
+  }
+  actualizarVistaPrevia();
+  if (nombre !== capturaActiva) return; // el usuario cambió de pestaña mientras tanto
+  const destino = limpiar
+    ? inputs.find((_, i) => !CAPTURAS[nombre].conservar.includes(i))
+    : inputs[0];
+  destino.focus();
+}
+
+function enviarFormulario() {
+  if (botonEnviar.disabled) return; // ya hay un envío en curso
+  const captura = capturaActiva;
+  const inputs = inputsDe(captura);
+  const vacios = inputs.filter((input) => input.value.trim() === '');
+
+  if (vacios.length > 0) {
+    // Solo se comprueba que no falte nada; no se envía ni se consume línea.
+    const mensaje = captura === 'directa'
+      ? 'Escribe una instrucción antes de procesar.'
+      : `Completa los campos vacíos: ${vacios.map((i) => i.dataset.nombre).join(', ')}.`;
+    mostrarError(mensaje, vacios);
+    vacios[0].focus();
+    return;
+  }
+
+  enviarTexto(CAPTURAS[captura].armar(valoresDe(captura)), captura);
 }
 
 document.querySelectorAll('.chip').forEach((chip) => {
@@ -373,8 +464,28 @@ document.querySelectorAll('.chip').forEach((chip) => {
   });
 });
 
-inputInstruccion.addEventListener('input', limpiarError);
-botonEnviar.addEventListener('click', enviarInstruccion);
-inputInstruccion.addEventListener('keydown', (evento) => {
-  if (evento.key === 'Enter') enviarInstruccion();
+// Pestañas: clic y teclado (flechas, Inicio, Fin).
+pestanas.forEach((tab, i) => {
+  tab.addEventListener('click', () => activarPestana(tab.dataset.captura, false));
+  tab.addEventListener('keydown', (evento) => {
+    let destino = null;
+    if (evento.key === 'ArrowRight') destino = (i + 1) % pestanas.length;
+    else if (evento.key === 'ArrowLeft') destino = (i - 1 + pestanas.length) % pestanas.length;
+    else if (evento.key === 'Home') destino = 0;
+    else if (evento.key === 'End') destino = pestanas.length - 1;
+    if (destino === null) return;
+    evento.preventDefault();
+    activarPestana(pestanas[destino].dataset.captura, true);
+  });
 });
+
+formulario.addEventListener('input', () => {
+  limpiarError();
+  actualizarVistaPrevia();
+});
+formulario.addEventListener('submit', (evento) => {
+  evento.preventDefault();
+  enviarFormulario();
+});
+
+actualizarVistaPrevia();

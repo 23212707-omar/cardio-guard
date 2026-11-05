@@ -244,12 +244,86 @@ main {
   font-weight: 600;
 }
 
-.fila-formulario {
+/* Pestañas de captura (ARIA tabs). La pestaña activa se marca con subrayado
+   grueso y más peso de fuente, no solo con color. */
+.pestanas {
   display: flex;
-  gap: var(--esp-2);
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--borde);
 }
 
-.fila-formulario input {
+.pestana {
+  flex: 1 1 auto;
+  min-height: 44px;
+  margin-bottom: -1px;
+  padding: var(--esp-2) var(--esp-4);
+  border: 0;
+  border-bottom: 4px solid transparent;
+  background: none;
+  color: var(--tinta-suave);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pestana:hover {
+  background: var(--seleccion);
+  color: var(--tinta);
+}
+
+.pestana[aria-selected="true"] {
+  border-bottom-color: var(--marca);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+[hidden] { display: none !important; }
+
+/* Campos de la captura */
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--esp-3);
+}
+
+.campo label { font-size: var(--texto-sm); }
+
+.formulario .campo input { width: 100%; }
+
+/* Vista previa de la instrucción y botón de envío */
+.fila-envio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-top: var(--esp-4);
+}
+
+.vista-previa {
+  flex: 1 1 16rem;
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo);
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+.vista-previa-etiqueta {
+  display: block;
+  font-size: var(--texto-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.vista-previa code { font-size: var(--texto-sm); }
+
+.boton-enviar { margin-left: auto; }
+
+.formulario input {
   flex: 1;
   min-width: 0;
   min-height: 44px;
@@ -262,12 +336,12 @@ main {
   font-size: var(--texto-base);
 }
 
-.fila-formulario input::placeholder {
+.formulario input::placeholder {
   color: var(--tinta-suave);
   opacity: 1;
 }
 
-.fila-formulario button {
+.formulario .boton-enviar {
   min-height: 44px;
   padding: var(--esp-2) var(--esp-5);
   border: 1px solid transparent;
@@ -278,9 +352,9 @@ main {
   cursor: pointer;
 }
 
-.fila-formulario button:hover { background: var(--marca-hover); }
+.formulario .boton-enviar:hover { background: var(--marca-hover); }
 
-.fila-formulario button:disabled {
+.formulario .boton-enviar:disabled {
   background: var(--rech-fondo);
   color: var(--rech-texto);
   border-color: var(--rech-borde);
@@ -288,26 +362,26 @@ main {
 }
 
 /* Campo: foco y solo lectura (mientras se procesa) */
-.fila-formulario input:focus-visible {
+.formulario input:focus-visible {
   border-color: var(--foco);
   outline-offset: 0;
 }
 
-.fila-formulario input[aria-invalid="true"] {
+.formulario input[aria-invalid="true"] {
   border-width: 2px;
   border-color: var(--tinta);
 }
 
-.fila-formulario input:read-only {
+.formulario input:read-only {
   background: var(--fondo);
   color: var(--tinta-suave);
   cursor: progress;
 }
 
 /* Botón: cargando (conserva el texto "Procesando…") */
-.fila-formulario button:active { background: var(--marca-hover); }
+.formulario .boton-enviar:active { background: var(--marca-hover); }
 
-.fila-formulario button {
+.formulario .boton-enviar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -315,11 +389,11 @@ main {
   min-width: 8.5rem;
 }
 
-.fila-formulario button:disabled { cursor: progress; }
+.formulario .boton-enviar:disabled { cursor: progress; }
 
 .boton-giro { display: none; }
 
-.fila-formulario button.cargando .boton-giro {
+.formulario .boton-enviar.cargando .boton-giro {
   display: inline-block;
   width: 1rem;
   height: 1rem;
@@ -711,7 +785,7 @@ main {
 
 /* ---------- Adaptación mínima ---------- */
 @media (max-width: 30rem) {
-  .fila-formulario { flex-direction: column; }
+  .boton-enviar { width: 100%; }
   .resumen { flex-wrap: wrap; }
   .resumen > div { flex: 1 1 40%; }
 }

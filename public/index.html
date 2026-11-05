@@ -14,26 +14,105 @@
 </header>
 
 <main>
-  <section class="formulario" aria-labelledby="titulo-instruccion">
-    <label for="instruccion" id="titulo-instruccion">Instrucción</label>
-    <div class="fila-formulario">
-      <input
-        type="text"
-        id="instruccion"
-        autocomplete="off"
-        placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
-        aria-describedby="error-instruccion"
-      >
-      <button id="enviar" type="button"><span class="boton-giro" aria-hidden="true"></span><span id="enviar-texto">Procesar</span></button>
+  <section class="formulario" aria-label="Captura de instrucción">
+    <div class="pestanas" role="tablist" aria-label="Tipo de captura">
+      <button type="button" class="pestana" role="tab" id="tab-registro" aria-controls="panel-registro" aria-selected="true" tabindex="0" data-captura="registro">Registrar paciente</button>
+      <button type="button" class="pestana" role="tab" id="tab-lectura" aria-controls="panel-lectura" aria-selected="false" tabindex="-1" data-captura="lectura">Registrar lectura</button>
+      <button type="button" class="pestana" role="tab" id="tab-directa" aria-controls="panel-directa" aria-selected="false" tabindex="-1" data-captura="directa">Instrucción directa</button>
     </div>
-    <p class="error-linea" id="error-instruccion" aria-live="polite"></p>
-    <div class="ejemplos">
-      <span class="ejemplos-titulo" id="ejemplos-titulo">Ejemplos (pulsa para rellenar):</span>
-      <ul class="chips" aria-labelledby="ejemplos-titulo">
-        <li><button type="button" class="chip" data-ejemplo="REGISTRAR P001, 45, M, O+">REGISTRAR P001, 45, M, O+</button></li>
-        <li><button type="button" class="chip" data-ejemplo="P001; 118/76, 75">P001; 118/76, 75</button></li>
-      </ul>
-    </div>
+
+    <!-- Los campos solo arman el texto de la instrucción: no validan nada.
+         Sin type="number", límites ni required; el intérprete es quien rechaza.
+         Los datalist solo sugieren: se puede escribir cualquier valor. -->
+    <form id="captura" novalidate>
+      <div role="tabpanel" id="panel-registro" aria-labelledby="tab-registro" data-captura="registro">
+        <div class="campos">
+          <div class="campo">
+            <label for="reg-id">ID del paciente</label>
+            <input type="text" id="reg-id" data-nombre="ID" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-edad">Edad</label>
+            <input type="text" id="reg-edad" data-nombre="edad" placeholder="ej. 45" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-sexo">Sexo</label>
+            <input type="text" id="reg-sexo" data-nombre="sexo" list="lista-sexo" placeholder="ej. M" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-sangre">Tipo de sangre</label>
+            <input type="text" id="reg-sangre" data-nombre="tipo de sangre" list="lista-sangre" placeholder="ej. O+" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+        </div>
+      </div>
+
+      <div role="tabpanel" id="panel-lectura" aria-labelledby="tab-lectura" data-captura="lectura" hidden>
+        <div class="campos">
+          <div class="campo">
+            <label for="lec-id">ID del paciente</label>
+            <input type="text" id="lec-id" data-nombre="ID" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-sis">Presión sistólica</label>
+            <input type="text" id="lec-sis" data-nombre="sistólica" placeholder="ej. 118" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-dia">Presión diastólica</label>
+            <input type="text" id="lec-dia" data-nombre="diastólica" placeholder="ej. 76" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-fc">Frecuencia cardíaca</label>
+            <input type="text" id="lec-fc" data-nombre="frecuencia" placeholder="ej. 75" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+        </div>
+      </div>
+
+      <div role="tabpanel" id="panel-directa" aria-labelledby="tab-directa" data-captura="directa" hidden>
+        <div class="campo">
+          <label for="instruccion">Instrucción</label>
+          <input
+            type="text"
+            id="instruccion"
+            data-nombre="instrucción"
+            autocomplete="off"
+            placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
+            aria-describedby="error-instruccion"
+          >
+        </div>
+        <div class="ejemplos">
+          <span class="ejemplos-titulo" id="ejemplos-titulo">Ejemplos (pulsa para rellenar):</span>
+          <ul class="chips" aria-labelledby="ejemplos-titulo">
+            <li><button type="button" class="chip" data-ejemplo="REGISTRAR P001, 45, M, O+">REGISTRAR P001, 45, M, O+</button></li>
+            <li><button type="button" class="chip" data-ejemplo="P001; 118/76, 75">P001; 118/76, 75</button></li>
+          </ul>
+        </div>
+      </div>
+
+      <datalist id="lista-sexo">
+        <option value="M"></option>
+        <option value="F"></option>
+      </datalist>
+      <datalist id="lista-sangre">
+        <option value="A+"></option>
+        <option value="A-"></option>
+        <option value="B+"></option>
+        <option value="B-"></option>
+        <option value="AB+"></option>
+        <option value="AB-"></option>
+        <option value="O+"></option>
+        <option value="O-"></option>
+      </datalist>
+
+      <p class="error-linea" id="error-instruccion" aria-live="polite"></p>
+
+      <div class="fila-envio">
+        <p class="vista-previa" id="vista-previa">
+          <span class="vista-previa-etiqueta">Se enviará</span>
+          <code id="vista-previa-texto"></code>
+        </p>
+        <button id="enviar" class="boton-enviar" type="submit"><span class="boton-giro" aria-hidden="true"></span><span id="enviar-texto">Procesar</span></button>
+      </div>
+    </form>
   </section>
 
   <section class="resumen" id="resumen" aria-label="Resumen de instrucciones procesadas">
