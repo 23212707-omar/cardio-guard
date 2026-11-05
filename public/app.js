@@ -604,6 +604,15 @@ const CAPTURAS = {
     campos: ['lec-id', 'lec-sis', 'lec-dia', 'lec-fc'],
     armar: (v) => `${v[0]}; ${v[1]}/${v[2]}, ${v[3]}`,
   },
+  consultar: {
+    campos: ['con-id'],
+    armar: (v) => `CONSULTAR ${v[0]}`,
+  },
+  // Sin campos: solo el botón. La vista previa muestra "LISTAR".
+  listar: {
+    campos: [],
+    armar: () => 'LISTAR',
+  },
   directa: {
     campos: ['instruccion'],
     armar: (v) => v[0],
@@ -612,12 +621,13 @@ const CAPTURAS = {
 
 let capturaActiva = 'registro';
 
-// Sugerencias para el ID de "Registrar lectura": los pacientes aceptados en
-// esta sesión del navegador (resultado.id de un REGISTRAR o una lectura
-// aceptados). Solo sugiere: un ID inexistente debe llegar al intérprete.
+// Sugerencias para el ID de "Lectura" y "Consultar": los pacientes aceptados en
+// esta sesión del navegador (resultado.id de un REGISTRAR, lectura o CONSULTAR
+// aceptados) y los de resultado.pacientes de un LISTAR. Solo sugiere: un ID
+// inexistente debe llegar al intérprete.
 // TODO: cuando exista GET /api/pacientes, llenar esta lista desde ahí (hoy no
-// existe y no se usa); así también aparecerían los pacientes de sesiones
-// anteriores.
+// existe y no se usa); así aparecerían desde el inicio los pacientes de
+// sesiones anteriores, sin tener que hacer LISTAR primero.
 const listaPacientes = document.getElementById('lista-pacientes');
 const pacientesSesion = new Set();
 
@@ -707,13 +717,20 @@ async function enviarTexto(texto, captura) {
     agregarTarjeta(datos.resultado, datos.lineasBitacora);
     resumenDePost = true;
     actualizarResumen(datos.contadores);
-    if (datos.resultado.estado !== 'RECHAZADO') recordarPaciente(datos.resultado.id);
+    if (datos.resultado.estado !== 'RECHAZADO') {
+      recordarPaciente(datos.resultado.id);
+      if (Array.isArray(datos.resultado.pacientes)) {
+        for (const p of datos.resultado.pacientes) recordarPaciente(p && p.id);
+      }
+    }
     limpiarTrasEnvio(captura, datos.resultado.estado);
   } catch (err) {
     mostrarError('No se pudo conectar con el servidor. Revisa que esté en marcha e inténtalo de nuevo.');
     numeroLinea -= 1;
   } finally {
     ponerCargando(false);
+    // Sin campos (Listar), el foco que tenía el botón deshabilitado vuelve a él.
+    if (captura === 'listar' && capturaActiva === 'listar') botonEnviar.focus();
   }
 }
 
@@ -725,7 +742,9 @@ function limpiarTrasEnvio(nombre, estado) {
   const limpiar = nombre === 'directa' || estado !== 'RECHAZADO';
   if (limpiar) inputs.forEach((input) => { input.value = ''; });
   actualizarVistaPrevia();
-  if (nombre === capturaActiva) inputs[0].focus(); // si cambió de pestaña, no se le quita el foco
+  // Si cambió de pestaña, no se le quita el foco. "Listar" no tiene campos:
+  // su foco vuelve al botón en enviarTexto, cuando ya no está deshabilitado.
+  if (nombre === capturaActiva && inputs.length > 0) inputs[0].focus();
 }
 
 function enviarFormulario() {

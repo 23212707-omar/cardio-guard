@@ -319,6 +319,11 @@ main {
 
 [hidden] { display: none !important; }
 
+.panel-nota {
+  margin: 0;
+  color: var(--tinta-suave);
+}
+
 /* Campos de la captura */
 .campos {
   display: grid;
@@ -1189,8 +1194,9 @@ main {
   .pestana {
     flex: 1 1 0;
     min-width: 0;
-    padding-inline: var(--esp-1);
-    font-size: var(--texto-sm);
+    padding-inline: 0;
+    font-size: var(--texto-xs);
+    letter-spacing: -0.01em;
     line-height: 1.25;
     text-wrap: balance;
   }
@@ -1211,9 +1217,11 @@ main {
 /* Ventanas muy estrechas (320 px con zoom, 200 %): la alerta sigue siendo lo
    más grande, pero cabe en su caja. */
 @media (max-width: 22rem) {
-  /* Con tres pestañas en fila las palabras largas se saldrían: se apilan */
-  .pestanas { flex-wrap: wrap; }
-  .pestana { flex: 1 1 100%; }
+  /* Las 5 pestañas siguen en una fila a 320 px: tipografía y márgenes más
+     ajustados (las etiquetas ya son cortas). */
+  main { padding-inline: var(--esp-2); }
+  .formulario { padding: var(--esp-2); }
+  .pestana { font-size: 0.75rem; letter-spacing: -0.02em; }
   .ultimo-alerta .ultimo-cabecera { padding: var(--esp-3); }
   .ultimo-alerta .insignia { font-size: var(--texto-base); }
   .ultimo-alerta .insignia-icono { width: 1.5rem; height: 1.5rem; }
