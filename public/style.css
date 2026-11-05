@@ -201,8 +201,23 @@ header p {
 main {
   max-width: var(--ancho-contenido);
   margin: 0 auto;
-  padding: var(--esp-5) var(--esp-4);
+  /* espacio inferior para que el pie fijo no tape el contenido */
+  padding: var(--esp-5) var(--esp-4) calc(var(--esp-7) + var(--esp-6));
 }
+
+/* ---------- Pie fijo ---------- */
+.pie {
+  position: fixed;
+  inset: auto 0 0 0;
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--panel);
+  border-top: 1px solid var(--borde);
+  color: var(--tinta);
+  text-align: center;
+  font-size: var(--texto-sm);
+}
+
+.pie p { margin: 0; }
 
 .formulario,
 .resumen {

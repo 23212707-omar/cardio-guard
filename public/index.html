@@ -8,14 +8,14 @@
 </head>
 <body>
 
-<header>
+<header class="cabecera">
   <h1>Cardio Guard</h1>
   <p>Intérprete para el monitoreo de presión arterial y frecuencia cardíaca</p>
 </header>
 
 <main>
-  <section class="formulario">
-    <label for="instruccion">Instrucción</label>
+  <section class="formulario" aria-labelledby="titulo-instruccion">
+    <label for="instruccion" id="titulo-instruccion">Instrucción</label>
     <div class="fila-formulario">
       <input
         type="text"
@@ -30,17 +30,21 @@
     </p>
   </section>
 
-  <section class="resumen" id="resumen">
+  <section class="resumen" id="resumen" aria-label="Resumen de instrucciones procesadas">
     <div><span class="etiqueta">Procesadas</span><strong id="r-total">0</strong></div>
     <div><span class="etiqueta">Aceptadas</span><strong id="r-aceptadas">0</strong></div>
     <div><span class="etiqueta">Con alerta</span><strong id="r-alerta">0</strong></div>
     <div><span class="etiqueta">Rechazadas</span><strong id="r-rechazadas">0</strong></div>
   </section>
 
-  <section class="historial" id="historial">
+  <section class="historial" id="historial" aria-label="Bitácora de resultados">
     <p class="vacio" id="historial-vacio">Aún no se ha procesado ninguna instrucción.</p>
   </section>
 </main>
+
+<footer class="pie">
+  <p>Resultados de carácter orientativo, no es diagnóstico médico.</p>
+</footer>
 
 <script src="app.js"></script>
 </body>
