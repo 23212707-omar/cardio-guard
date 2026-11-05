@@ -128,12 +128,39 @@ function agregarTarjeta(lineasBitacora, estado) {
   historial.prepend(tarjeta);
 }
 
-async function enviarInstruccion() {
-  const texto = inputInstruccion.value.trim();
-  if (!texto) return;
+const textoBoton = document.getElementById('enviar-texto');
+const errorLinea = document.getElementById('error-instruccion');
 
+function mostrarError(mensaje) {
+  errorLinea.textContent = mensaje;
+  inputInstruccion.setAttribute('aria-invalid', 'true');
+}
+
+function limpiarError() {
+  errorLinea.textContent = '';
+  inputInstruccion.removeAttribute('aria-invalid');
+}
+
+function ponerCargando(cargando) {
+  botonEnviar.disabled = cargando;
+  botonEnviar.classList.toggle('cargando', cargando);
+  inputInstruccion.readOnly = cargando;
+  inputInstruccion.closest('.formulario').setAttribute('aria-busy', String(cargando));
+  textoBoton.textContent = cargando ? 'Procesando…' : 'Procesar';
+}
+
+async function enviarInstruccion() {
+  if (botonEnviar.disabled) return; // ya hay un envío en curso
+  const texto = inputInstruccion.value.trim();
+  if (!texto) {
+    mostrarError('Escribe una instrucción antes de procesar.');
+    inputInstruccion.focus();
+    return;
+  }
+
+  limpiarError();
   numeroLinea += 1;
-  botonEnviar.disabled = true;
+  ponerCargando(true);
 
   try {
     const respuesta = await fetch('/api/procesar', {
@@ -144,7 +171,7 @@ async function enviarInstruccion() {
 
     if (!respuesta.ok) {
       const error = await respuesta.json().catch(() => ({}));
-      alert(error.error || 'Ocurrió un error al procesar la instrucción.');
+      mostrarError(error.error || 'Ocurrió un error al procesar la instrucción.');
       numeroLinea -= 1; // no se consumió un número de línea real
       return;
     }
@@ -155,13 +182,22 @@ async function enviarInstruccion() {
     inputInstruccion.value = '';
     inputInstruccion.focus();
   } catch (err) {
-    alert('No se pudo conectar con el servidor.');
+    mostrarError('No se pudo conectar con el servidor. Revisa que esté en marcha e inténtalo de nuevo.');
     numeroLinea -= 1;
   } finally {
-    botonEnviar.disabled = false;
+    ponerCargando(false);
   }
 }
 
+document.querySelectorAll('.chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    inputInstruccion.value = chip.dataset.ejemplo;
+    limpiarError();
+    inputInstruccion.focus();
+  });
+});
+
+inputInstruccion.addEventListener('input', limpiarError);
 botonEnviar.addEventListener('click', enviarInstruccion);
 inputInstruccion.addEventListener('keydown', (evento) => {
   if (evento.key === 'Enter') enviarInstruccion();

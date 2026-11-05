@@ -22,12 +22,18 @@
         id="instruccion"
         autocomplete="off"
         placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
+        aria-describedby="error-instruccion"
       >
-      <button id="enviar">Procesar</button>
+      <button id="enviar" type="button"><span class="boton-giro" aria-hidden="true"></span><span id="enviar-texto">Procesar</span></button>
     </div>
-    <p class="ayuda">
-      Ejemplos: <code>REGISTRAR P001, 45, M, O+</code> &nbsp;|&nbsp; <code>P001; 118/76, 75</code>
-    </p>
+    <p class="error-linea" id="error-instruccion" aria-live="polite"></p>
+    <div class="ejemplos">
+      <span class="ejemplos-titulo" id="ejemplos-titulo">Ejemplos (pulsa para rellenar):</span>
+      <ul class="chips" aria-labelledby="ejemplos-titulo">
+        <li><button type="button" class="chip" data-ejemplo="REGISTRAR P001, 45, M, O+">REGISTRAR P001, 45, M, O+</button></li>
+        <li><button type="button" class="chip" data-ejemplo="P001; 118/76, 75">P001; 118/76, 75</button></li>
+      </ul>
+    </div>
   </section>
 
   <section class="resumen" id="resumen" aria-label="Resumen de instrucciones procesadas">
