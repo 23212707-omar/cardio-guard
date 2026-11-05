@@ -50,7 +50,7 @@
         <div class="campos">
           <div class="campo">
             <label for="lec-id">ID del paciente</label>
-            <input type="text" id="lec-id" data-nombre="ID" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+            <input type="text" id="lec-id" data-nombre="ID" list="lista-pacientes" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
           </div>
           <div class="campo">
             <label for="lec-sis">Presión sistólica</label>
@@ -88,6 +88,8 @@
         </div>
       </div>
 
+      <!-- Solo sugiere IDs de esta sesión; no restringe lo que se escribe. -->
+      <datalist id="lista-pacientes"></datalist>
       <datalist id="lista-sexo">
         <option value="M"></option>
         <option value="F"></option>

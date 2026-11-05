@@ -317,26 +317,39 @@ const pestanas = Array.from(document.querySelectorAll('.pestana'));
 
 // `campos`: ids de los inputs, en el orden de la instrucción.
 // `armar`: solo concatena con el formato fijo; no interpreta ni corrige.
-// `conservar`: posiciones que no se limpian tras un envío aceptado.
 const CAPTURAS = {
   registro: {
     campos: ['reg-id', 'reg-edad', 'reg-sexo', 'reg-sangre'],
     armar: (v) => `REGISTRAR ${v[0]}, ${v[1]}, ${v[2]}, ${v[3]}`,
-    conservar: [],
   },
   lectura: {
     campos: ['lec-id', 'lec-sis', 'lec-dia', 'lec-fc'],
     armar: (v) => `${v[0]}; ${v[1]}/${v[2]}, ${v[3]}`,
-    conservar: [0], // varias lecturas seguidas del mismo paciente
   },
   directa: {
     campos: ['instruccion'],
     armar: (v) => v[0],
-    conservar: [],
   },
 };
 
 let capturaActiva = 'registro';
+
+// Sugerencias para el ID de "Registrar lectura": los pacientes aceptados en
+// esta sesión del navegador (resultado.id de un REGISTRAR o una lectura
+// aceptados). Solo sugiere: un ID inexistente debe llegar al intérprete.
+// TODO: cuando exista GET /api/pacientes, llenar esta lista desde ahí (hoy no
+// existe y no se usa); así también aparecerían los pacientes de sesiones
+// anteriores.
+const listaPacientes = document.getElementById('lista-pacientes');
+const pacientesSesion = new Set();
+
+function recordarPaciente(id) {
+  if (!id || pacientesSesion.has(id)) return;
+  pacientesSesion.add(id);
+  const opcion = document.createElement('option');
+  opcion.value = id;
+  listaPacientes.appendChild(opcion);
+}
 
 function inputsDe(nombre) {
   return CAPTURAS[nombre].campos.map((id) => document.getElementById(id));
@@ -409,6 +422,7 @@ async function enviarTexto(texto, captura) {
     mostrarUltimo(datos.resultado, datos.lineasBitacora, texto);
     agregarTarjeta(datos.lineasBitacora, datos.resultado.estado);
     actualizarResumen(datos.contadores);
+    if (datos.resultado.estado !== 'RECHAZADO') recordarPaciente(datos.resultado.id);
     limpiarTrasEnvio(captura, datos.resultado.estado);
   } catch (err) {
     mostrarError('No se pudo conectar con el servidor. Revisa que esté en marcha e inténtalo de nuevo.');
@@ -418,23 +432,15 @@ async function enviarTexto(texto, captura) {
   }
 }
 
-// Aceptado: se limpian los campos (menos los que se conservan) y se enfoca el
-// primero. Rechazado: se conservan los valores para poder corregirlos.
-// La instrucción directa se limpia siempre, como antes.
+// Aceptado: se limpian todos los campos y se enfoca el primero. Rechazado: se
+// conservan los valores para poder corregirlos. La instrucción directa se
+// limpia siempre, como antes.
 function limpiarTrasEnvio(nombre, estado) {
   const inputs = inputsDe(nombre);
   const limpiar = nombre === 'directa' || estado !== 'RECHAZADO';
-  if (limpiar) {
-    inputs.forEach((input, i) => {
-      if (!CAPTURAS[nombre].conservar.includes(i)) input.value = '';
-    });
-  }
+  if (limpiar) inputs.forEach((input) => { input.value = ''; });
   actualizarVistaPrevia();
-  if (nombre !== capturaActiva) return; // el usuario cambió de pestaña mientras tanto
-  const destino = limpiar
-    ? inputs.find((_, i) => !CAPTURAS[nombre].conservar.includes(i))
-    : inputs[0];
-  destino.focus();
+  if (nombre === capturaActiva) inputs[0].focus(); // si cambió de pestaña, no se le quita el foco
 }
 
 function enviarFormulario() {
