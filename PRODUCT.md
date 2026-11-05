@@ -32,7 +32,7 @@ Servidor Express local (`npm start`, puerto 3000) que sirve `public/` y expone l
 Nombre: Cardio Guard. Colores por estado obligatorios: verde = aceptado, rojo = alerta, naranja = advertencia, gris = rechazado. Debe mostrarse siempre la nota "carácter orientativo, no es diagnóstico médico".
 
 ## Evidence on Hand
-Sin testimonios, métricas ni logotipo. Integrantes del equipo: pendiente de confirmar (marcador en la pantalla About us). No inventar datos de pacientes ni cifras.
+Sin testimonios, métricas ni logotipo. Los integrantes del equipo se muestran en la pantalla About us. No inventar datos de pacientes ni cifras.
 
 ## Product Principles
 - El estado de una lectura debe entenderse de un vistazo y nunca solo por color.

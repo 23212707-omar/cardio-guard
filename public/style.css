@@ -993,3 +993,72 @@ main {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- Navegación y pantalla «Acerca de» (estática) ---------- */
+.cabecera-nav {
+  display: flex;
+  justify-content: center;
+  gap: var(--esp-4);
+  margin-top: var(--esp-3);
+}
+
+.cabecera-nav a {
+  color: var(--marca-texto);
+  padding: var(--esp-1) var(--esp-2);
+  border-radius: var(--radio-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cabecera-nav a[aria-current="page"] {
+  font-weight: 600;
+  text-decoration-thickness: 3px;
+}
+
+/* El foco sobre la marca usa el color del texto para contrastar con el fondo */
+.cabecera-nav a:focus-visible,
+.salto:focus-visible { outline-color: var(--marca-texto); }
+
+.pie a { color: var(--marca); text-underline-offset: 3px; }
+
+.salto {
+  position: absolute;
+  left: var(--esp-2);
+  top: -4rem;
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--marca);
+  color: var(--marca-texto);
+  border-radius: var(--radio-sm);
+  z-index: 10;
+}
+.salto:focus { top: var(--esp-2); }
+
+.acerca {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-md);
+  box-shadow: var(--sombra-panel);
+  margin-bottom: var(--esp-4);
+  padding: var(--esp-4) var(--esp-5);
+}
+.acerca p { margin: 0 0 var(--esp-2); }
+.acerca p:last-child { margin-bottom: 0; }
+
+.acerca-datos { margin: 0; display: grid; gap: var(--esp-2); }
+.acerca-datos dt { color: var(--tinta-suave); font-size: var(--texto-sm); }
+.acerca-datos dd { margin: 0; font-weight: 500; }
+
+.acerca-etapas { margin: var(--esp-2) 0 0; padding-left: var(--esp-5); }
+.acerca-etapas li { margin-bottom: var(--esp-2); }
+
+.acerca-volver { margin: var(--esp-5) 0 0; }
+.boton-enlace {
+  display: inline-block;
+  padding: var(--esp-2) var(--esp-4);
+  background: var(--marca);
+  color: var(--marca-texto);
+  border-radius: var(--radio-md);
+  text-decoration: none;
+  font-weight: 500;
+}
+.boton-enlace:hover { background: var(--marca-hover); }
