@@ -6,11 +6,13 @@ const { TIPO } = require('../lexer/lexer');
  * parser.js — Analizador sintáctico de Cardio Guard
  *
  * Gramática que implementa (ver sección 4.3 del documento de contexto):
- *   S   -> REG | LEC
+ *   S   -> REG | LEC | CON | LIS
  *   REG -> registrar id , num , sexo , sangre
  *   LEC -> id ; P , F
  *   P   -> num / num
  *   F   -> num
+ *   CON -> consultar id
+ *   LIS -> listar
  *
  * Entrega un árbol ya "aplanado" a un objeto plano (no una estructura de
  * nodos anidados), porque es lo que el motor semántico necesita consumir:
@@ -20,6 +22,9 @@ const { TIPO } = require('../lexer/lexer');
  *
  *   P001; 118/76, 75
  *     -> { tipo: 'LEC', id: 'P001', sistolica: 118, diastolica: 76, frecuencia: 75 }
+ *
+ *   CONSULTAR P001  -> { tipo: 'CON', id: 'P001' }
+ *   LISTAR          -> { tipo: 'LIS' }
  *
  * El parser ya convierte los números de texto a tipo numérico; eso es un
  * paso mecánico, no una regla semántica.
@@ -32,9 +37,15 @@ const { TIPO } = require('../lexer/lexer');
 
 /** Error de sintaxis: la secuencia de tokens no sigue la gramática. */
 class ErrorSintactico extends Error {
-  constructor(mensaje, posicion) {
-    super(mensaje);
+  /**
+   * @param {string} detalle - qué se esperaba, en minúsculas (ej. 'se esperaba ","');
+   *   es el texto que se muestra junto al marcador "^".
+   * @param {number} posicion - índice del carácter con la falla dentro de la línea.
+   */
+  constructor(detalle, posicion) {
+    super(`Estructura de tokens inválida (${detalle})`);
     this.name = 'ErrorSintactico';
+    this.detalle = detalle;
     this.posicion = posicion;
   }
 }
@@ -44,7 +55,9 @@ class ErrorSintactico extends Error {
  * de la instrucción.
  * @param {Array<{tipo: string, valor: string, posicion: number}>} tokens
  * @returns {{tipo: 'REG', id: string, edad: number, sexo: string, sangre: string}
- *          | {tipo: 'LEC', id: string, sistolica: number, diastolica: number, frecuencia: number}}
+ *          | {tipo: 'LEC', id: string, sistolica: number, diastolica: number, frecuencia: number}
+ *          | {tipo: 'CON', id: string}
+ *          | {tipo: 'LIS'}}
  * @throws {ErrorSintactico}
  */
 function analizarSintactico(tokens) {
@@ -71,12 +84,12 @@ function analizarSintactico(tokens) {
   function parsearP() {
     const numIzq = esperar(
       TIPO.NUM,
-      (t) => 'Estructura de tokens inválida (se esperaba la presión sistólica)'
+      (t) => 'se esperaba la presión sistólica'
     ).valor;
 
     esperar(
       TIPO.SLASH,
-      (t) => 'Estructura de tokens inválida (se esperaba "/")'
+      (t) => 'se esperaba "/"'
     );
 
     // Caso específico documentado: un guion justo después de la diagonal,
@@ -84,14 +97,14 @@ function analizarSintactico(tokens) {
     // en vez del mensaje genérico de "se esperaba un número".
     if (actual().tipo === TIPO.GUION) {
       throw new ErrorSintactico(
-        'Estructura de tokens inválida (se esperaba un número positivo después de la diagonal)',
+        'se esperaba un número positivo después de la diagonal',
         actual().posicion
       );
     }
 
     const numDer = esperar(
       TIPO.NUM,
-      (t) => 'Estructura de tokens inválida (se esperaba la presión diastólica)'
+      (t) => 'se esperaba la presión diastólica'
     ).valor;
 
     return { sistolica: Number(numIzq), diastolica: Number(numDer) };
@@ -101,7 +114,7 @@ function analizarSintactico(tokens) {
   function parsearF() {
     const num = esperar(
       TIPO.NUM,
-      (t) => 'Estructura de tokens inválida (se esperaba la frecuencia cardíaca)'
+      (t) => 'se esperaba la frecuencia cardíaca'
     ).valor;
     return Number(num);
   }
@@ -110,31 +123,31 @@ function analizarSintactico(tokens) {
   function exigirFinDeLinea() {
     esperar(
       TIPO.EOF,
-      (t) => `Estructura de tokens inválida (sobra texto después de la instrucción: "${t.valor}")`
+      (t) => `sobra texto después de la instrucción: "${t.valor}"`
     );
   }
 
   // REG -> registrar id , num , sexo , sangre
   function parsearREG() {
-    esperar(TIPO.REGISTRAR, () => 'Estructura de tokens inválida (se esperaba REGISTRAR)');
+    esperar(TIPO.REGISTRAR, () => 'se esperaba REGISTRAR');
     const id = esperar(
       TIPO.ID,
-      () => 'Estructura de tokens inválida (se esperaba el identificador del paciente)'
+      () => 'se esperaba el identificador del paciente'
     ).valor;
-    esperar(TIPO.COMA, () => 'Estructura de tokens inválida (se esperaba ",")');
+    esperar(TIPO.COMA, () => 'se esperaba ","');
     const edad = esperar(
       TIPO.NUM,
-      () => 'Estructura de tokens inválida (se esperaba la edad)'
+      () => 'se esperaba la edad'
     ).valor;
-    esperar(TIPO.COMA, () => 'Estructura de tokens inválida (se esperaba ",")');
+    esperar(TIPO.COMA, () => 'se esperaba ","');
     const sexo = esperar(
       TIPO.LETRA,
-      () => 'Estructura de tokens inválida (se esperaba el sexo)'
+      () => 'se esperaba el sexo'
     ).valor;
-    esperar(TIPO.COMA, () => 'Estructura de tokens inválida (se esperaba ",")');
+    esperar(TIPO.COMA, () => 'se esperaba ","');
     const sangre = esperar(
       TIPO.SANGRE,
-      () => 'Estructura de tokens inválida (se esperaba el tipo de sangre)'
+      () => 'se esperaba el tipo de sangre'
     ).valor;
     exigirFinDeLinea();
 
@@ -145,11 +158,11 @@ function analizarSintactico(tokens) {
   function parsearLEC() {
     const id = esperar(
       TIPO.ID,
-      () => 'Estructura de tokens inválida (se esperaba el identificador del paciente)'
+      () => 'se esperaba el identificador del paciente'
     ).valor;
-    esperar(TIPO.PUNTOYCOMA, () => 'Estructura de tokens inválida (se esperaba ";")');
+    esperar(TIPO.PUNTOYCOMA, () => 'se esperaba ";"');
     const presion = parsearP();
-    esperar(TIPO.COMA, () => 'Estructura de tokens inválida (se esperaba ",")');
+    esperar(TIPO.COMA, () => 'se esperaba ","');
     const frecuencia = parsearF();
     exigirFinDeLinea();
 
@@ -162,16 +175,40 @@ function analizarSintactico(tokens) {
     };
   }
 
-  // S -> REG | LEC   (se decide con el primer token, sin retroceder)
+  // CON -> consultar id
+  function parsearCON() {
+    esperar(TIPO.CONSULTAR, () => 'se esperaba CONSULTAR');
+    const id = esperar(
+      TIPO.ID,
+      () => 'se esperaba el identificador del paciente'
+    ).valor;
+    exigirFinDeLinea();
+    return { tipo: 'CON', id };
+  }
+
+  // LIS -> listar
+  function parsearLIS() {
+    esperar(TIPO.LISTAR, () => 'se esperaba LISTAR');
+    exigirFinDeLinea();
+    return { tipo: 'LIS' };
+  }
+
+  // S -> REG | LEC | CON | LIS   (se decide con el primer token, sin retroceder)
   const primero = actual();
   if (primero.tipo === TIPO.REGISTRAR) {
     return parsearREG();
+  }
+  if (primero.tipo === TIPO.CONSULTAR) {
+    return parsearCON();
+  }
+  if (primero.tipo === TIPO.LISTAR) {
+    return parsearLIS();
   }
   if (primero.tipo === TIPO.ID) {
     return parsearLEC();
   }
   throw new ErrorSintactico(
-    'Estructura de tokens inválida (se esperaba REGISTRAR o el identificador de un paciente)',
+    'se esperaba REGISTRAR, CONSULTAR, LISTAR o el identificador de un paciente',
     primero.posicion
   );
 }

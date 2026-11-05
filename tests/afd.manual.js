@@ -89,3 +89,31 @@ try {
     throw err;
   }
 }
+
+// --- CONSULTAR y LISTAR ---
+correr('CONSULTAR válido', [
+  EVENTO.LEXICO_SINTACTICO_OK_CON,
+  EVENTO.CONSULTA_PACIENTE_ENCONTRADO,
+]);
+correr('CONSULTAR de paciente inexistente', [
+  EVENTO.LEXICO_SINTACTICO_OK_CON,
+  EVENTO.CONSULTA_PACIENTE_NO_ENCONTRADO,
+]);
+correr('LISTAR', [
+  EVENTO.LEXICO_SINTACTICO_OK_LIS,
+  EVENTO.LISTADO_OK,
+]);
+
+for (const [nombre, eventos] of [
+  ['LISTANDO no acepta CONSULTA_PACIENTE_ENCONTRADO', [EVENTO.LEXICO_SINTACTICO_OK_LIS, EVENTO.CONSULTA_PACIENTE_ENCONTRADO]],
+  ['BUSCANDO_PACIENTE_CONSULTA no acepta PACIENTE_ENCONTRADO (el de lecturas)', [EVENTO.LEXICO_SINTACTICO_OK_CON, EVENTO.PACIENTE_ENCONTRADO]],
+]) {
+  try {
+    const afd = crearAFD();
+    eventos.forEach((e) => afd.transitar(e));
+    console.log(`[FALLÓ] ${nombre}`);
+  } catch (err) {
+    if (!(err instanceof TransicionInvalidaError)) throw err;
+    console.log(`[OK] ${nombre}`);
+  }
+}

@@ -4,7 +4,9 @@
  * clasificacion.js — Clasificación clínica de Cardio Guard
  *
  * Implementa la sección 7 del documento de contexto: categorías de presión
- * arterial (AHA/ACC) y de frecuencia cardíaca, el criterio de cambio
+ * arterial (NOM-030-SSA2-2017, norma oficial mexicana; antes se usaba la
+ * guía AHA/ACC 2017, se cambió por decisión del equipo) y de frecuencia
+ * cardíaca, el criterio de cambio
  * positivo/negativo contra la última revisión, y la decisión de si una
  * lectura debe mostrarse como ALERTA (crisis), ADVERTENCIA (dato
  * sospechoso) o ambas a la vez.
@@ -16,31 +18,60 @@
  */
 
 // --- 7.1 Categorías de presión arterial (de más a menos severa) ---
+//
+// Tabla de la NOM-030-SSA2-2017:
+//   Óptima                  < 120     y   < 80
+//   Subóptima               120-129   o   80-84
+//   Limítrofe               130-139   o   85-89
+//   Hipertensión grado 1    140-159   o   90-99
+//   Hipertensión grado 2    160-179   o   100-109
+//   Hipertensión grado 3    >= 180    o   >= 110
+//
+// "Crisis hipertensiva" NO es una categoría de la NOM-030: se conserva
+// encima de grado 3, con el mismo umbral que ya tenía el proyecto
+// (sistólica > 180 o diastólica > 120), porque es la que dispara la
+// ALERTA ROJA (sección 7.4) y el AFD depende de ella. Una lectura de
+// exactamente 180/110 es grado 3; 181/110 o 170/121 ya es crisis.
+//
+// "Hipertensión sistólica aislada" (>= 140 y < 90) tampoco se agrega como
+// categoría aparte: con la regla de "la categoría más alta de las dos" ya
+// cae en el grado que le corresponde por su sistólica (ej. 150/80 ->
+// grado 1), que es como la clasifican también las guías europeas.
 const CATEGORIAS_PRESION = [
   {
     nombre: 'Crisis hipertensiva',
-    nivel: 4,
+    nivel: 6,
     coincide: (s, d) => s > 180 || d > 120,
   },
   {
-    nombre: 'Hipertensión etapa 2',
+    nombre: 'Hipertensión grado 3',
+    nivel: 5,
+    coincide: (s, d) => s >= 180 || d >= 110,
+  },
+  {
+    nombre: 'Hipertensión grado 2',
+    nivel: 4,
+    coincide: (s, d) => s >= 160 || d >= 100,
+  },
+  {
+    nombre: 'Hipertensión grado 1',
     nivel: 3,
     coincide: (s, d) => s >= 140 || d >= 90,
   },
   {
-    nombre: 'Hipertensión etapa 1',
+    nombre: 'Limítrofe',
     nivel: 2,
-    coincide: (s, d) => (s >= 130 && s <= 139) || (d >= 80 && d <= 89),
+    coincide: (s, d) => s >= 130 || d >= 85,
   },
   {
-    nombre: 'Elevada',
+    nombre: 'Subóptima',
     nivel: 1,
-    coincide: (s, d) => s >= 120 && s <= 129 && d < 80,
+    coincide: (s, d) => s >= 120 || d >= 80,
   },
   {
-    nombre: 'Normal',
+    nombre: 'Óptima',
     nivel: 0,
-    coincide: (s, d) => s < 120 && d < 80,
+    coincide: () => true, // < 120 y < 80: todo lo que no cayó arriba
   },
 ];
 
@@ -52,8 +83,8 @@ const CATEGORIAS_PRESION = [
  */
 function clasificarPresion(sistolica, diastolica) {
   const categoria = CATEGORIAS_PRESION.find((c) => c.coincide(sistolica, diastolica));
-  // CATEGORIAS_PRESION cubre todo el plano (Normal es la condición por
-  // defecto), así que siempre debería encontrar una coincidencia.
+  // CATEGORIAS_PRESION cubre todo el plano (Óptima es la condición por
+  // defecto), así que siempre encuentra una coincidencia.
   return { nombre: categoria.nombre, nivel: categoria.nivel };
 }
 
@@ -76,6 +107,31 @@ function clasificarFrecuencia(frecuencia) {
  * forma explícita de todas formas, por claridad y por si en el futuro se
  * ajustan los umbrales de alguna de las dos reglas.
  */
+/**
+ * 7.4 — ¿La presión está fuera del rango fisiológico habitual? (dato
+ * sospechoso). Única definición del umbral: la usan validarLectura.js y la
+ * descripción de revisiones guardadas.
+ */
+function esDatoSospechoso(sistolica, diastolica) {
+  return sistolica > 250 || diastolica > 150;
+}
+
+/**
+ * Clasificación de una revisión ya guardada (para CONSULTAR y LISTAR).
+ * @param {{sistolica:number, diastolica:number, frecuencia:number}|null} revision
+ * @returns {null | {presion: object, frecuencia: object, crisis: boolean, datoSospechoso: boolean}}
+ */
+function describirRevision(revision) {
+  if (!revision) return null;
+  const presion = clasificarPresion(revision.sistolica, revision.diastolica);
+  return {
+    presion,
+    frecuencia: clasificarFrecuencia(revision.frecuencia),
+    crisis: presion.nombre === 'Crisis hipertensiva',
+    datoSospechoso: esDatoSospechoso(revision.sistolica, revision.diastolica),
+  };
+}
+
 function determinarAvisoClasificacion(categoriaPresion, datoSospechoso) {
   const esCrisis = categoriaPresion.nombre === 'Crisis hipertensiva';
 
@@ -132,6 +188,8 @@ module.exports = {
   CATEGORIAS_PRESION,
   clasificarPresion,
   clasificarFrecuencia,
+  esDatoSospechoso,
+  describirRevision,
   determinarAvisoClasificacion,
   compararConUltimaRevision,
 };

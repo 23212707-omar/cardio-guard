@@ -85,6 +85,18 @@ class PacientesRepo {
     return this.pacientes.get(id) || null;
   }
 
+  /**
+   * Todos los pacientes, en orden de registro. Regresa COPIAS (no las
+   * referencias internas) para que quien liste no pueda mutar el repositorio
+   * ni verse afectado por una actualización posterior (ver sección 14.3).
+   */
+  listar() {
+    return Array.from(this.pacientes.values()).map((p) => ({
+      ...p,
+      ultimaRevision: p.ultimaRevision ? { ...p.ultimaRevision } : null,
+    }));
+  }
+
   /** Da de alta un paciente nuevo, sin revisión previa, y persiste el archivo. */
   agregar({ id, edad, sexo, sangre }) {
     this.pacientes.set(id, { id, edad, sexo, sangre, ultimaRevision: null });

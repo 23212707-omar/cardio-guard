@@ -1,5 +1,7 @@
 'use strict';
 
+const { esDatoSospechoso } = require('./clasificacion');
+
 /**
  * validarLectura.js — Reglas semánticas para una instrucción de lectura
  *
@@ -49,7 +51,7 @@ function validarLectura(arbolLec) {
   // Presión fuera de rango fisiológico (sección 7.4): ya NO se rechaza.
   // Se deja pasar como válida, marcada como "dato sospechoso", para que
   // clasificacion.js decida si corresponde ADVERTENCIA, ALERTA, o ambas.
-  const datoSospechoso = sistolica > 250 || diastolica > 150;
+  const datoSospechoso = esDatoSospechoso(sistolica, diastolica);
 
   return { ok: true, datoSospechoso };
 }
