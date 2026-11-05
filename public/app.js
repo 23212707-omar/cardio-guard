@@ -161,8 +161,8 @@ function leerLectura(texto) {
   return { sistolica: Number(m[1]), diastolica: Number(m[2]), frecuencia: Number(m[3]) };
 }
 
-function crearDato(etiqueta, valor, sub) {
-  const caja = el('div', 'dato');
+function crearDato(etiqueta, valor, sub, ancho) {
+  const caja = el('div', ancho ? 'dato dato-ancho' : 'dato');
   caja.appendChild(el('dt', 'dato-etiqueta', etiqueta));
   caja.appendChild(el('dd', 'dato-valor', valor));
   if (sub) caja.appendChild(el('dd', 'dato-sub', sub));
@@ -186,7 +186,10 @@ function crearComparacion(comparacion, b) {
     return p;
   }
   if (b.anterior) {
-    p.appendChild(document.createTextNode(` respecto a la revisión del ${b.anterior.fecha} (${b.anterior.valores}).`));
+    // La fecha va en su propio span para que no se parta en los guiones.
+    p.appendChild(document.createTextNode(' respecto a la revisión del '));
+    p.appendChild(el('span', 'fecha', b.anterior.fecha));
+    p.appendChild(document.createTextNode(` (${b.anterior.valores}).`));
   }
   if (comparacion.presion && comparacion.frecuencia) {
     const detalle = el(
@@ -249,7 +252,7 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
       datos.appendChild(crearDato('Frecuencia', lec.frecuencia, cat ? `lpm · ${cat}` : 'lpm'));
     }
     if (resultado.clasificacionPresion) {
-      datos.appendChild(crearDato('Clasificación', resultado.clasificacionPresion.nombre));
+      datos.appendChild(crearDato('Clasificación', resultado.clasificacionPresion.nombre, null, true));
     }
     cuerpo.appendChild(datos);
 

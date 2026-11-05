@@ -596,6 +596,7 @@ main {
 .cifra-rechazado { --cifra-color: var(--rech-borde); }
 
 .cifra dt {
+  overflow-wrap: anywhere;
   font-size: var(--texto-xs);
   color: var(--tinta-suave);
   text-transform: uppercase;
@@ -937,6 +938,7 @@ main {
   color: var(--tinta);
 }
 
+.dato { min-width: 0; overflow-wrap: anywhere; }
 .dato dd { margin: 0; }
 
 .dato-etiqueta {
@@ -976,6 +978,10 @@ main {
 .ultimo-sospechoso,
 .ultimo-bloque p,
 .ultimo-paciente { overflow-wrap: anywhere; }
+
+/* Fechas (AAAA-MM-DD): no se parten en los guiones */
+.fecha,
+#r-fecha { white-space: nowrap; }
 
 .ultimo-comparacion-detalle {
   display: block;
@@ -1027,12 +1033,44 @@ main {
 /* ---------- Adaptación mínima ---------- */
 @media (max-width: 30rem) {
   .boton-enviar { width: 100%; }
-  .resumen-cifras { grid-template-columns: repeat(2, 1fr); }
+  .resumen-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   main { padding-inline: var(--esp-3); }
   .formulario { padding: var(--esp-3); }
-  .pestana { padding-inline: var(--esp-3); }
+  /* Las tres pestañas caben en una sola fila; el texto largo baja de línea
+     dentro de su pestaña en vez de dejar una pestaña sola en otra fila. */
+  .pestanas { flex-wrap: nowrap; gap: 0; }
+  .pestana {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--esp-1);
+    font-size: var(--texto-sm);
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .pie-sep { display: none; }
+  main { padding-bottom: var(--esp-6); }
+  /* Clasificación ocupa todo el ancho; el valor puede bajar de línea */
+  .dato-ancho { grid-column: 1 / -1; }
+  .dato-valor { font-size: var(--texto-lg); }
+  .ultimo-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Pie compacto: la nota sigue visible, en menos líneas */
+  .pie { padding: var(--esp-1) var(--esp-3); font-size: var(--texto-xs); line-height: 1.35; }
+  .pie p { display: block; }
   .ultimo-alerta .insignia { font-size: var(--texto-xl); }
   .ultimo-alerta .insignia-icono { width: 1.75rem; height: 1.75rem; }
+}
+
+/* Ventanas muy estrechas (320 px con zoom, 200 %): la alerta sigue siendo lo
+   más grande, pero cabe en su caja. */
+@media (max-width: 22rem) {
+  /* Con tres pestañas en fila las palabras largas se saldrían: se apilan */
+  .pestanas { flex-wrap: wrap; }
+  .pestana { flex: 1 1 100%; }
+  .ultimo-alerta .ultimo-cabecera { padding: var(--esp-3); }
+  .ultimo-alerta .insignia { font-size: var(--texto-base); }
+  .ultimo-alerta .insignia-icono { width: 1.5rem; height: 1.5rem; }
+  .ultimo-paciente { font-size: var(--texto-lg); }
 }
 
 /* ---------- Movimiento reducido ---------- */
@@ -1087,6 +1125,10 @@ main {
   padding: 0 var(--esp-2);
   color: var(--marca);
   text-underline-offset: 3px;
+}
+
+@media (max-width: 30rem) {
+  .pie a { display: inline; min-height: 0; padding: var(--esp-1); }
 }
 
 .salto {
