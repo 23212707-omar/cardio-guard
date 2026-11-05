@@ -34,6 +34,64 @@ function claseParaEstado(estado) {
   }
 }
 
+// Insignia de estado: icono SVG en línea + texto + color (nunca solo color).
+// ACEPTADO_CON_ALERTA_Y_ADVERTENCIA se muestra como alerta, con el aviso de
+// dato sospechoso visible en el texto de la insignia.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ICONOS = {
+  // círculo con palomita
+  aceptado: ['M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z', 'M7.5 12.5l3 3 6-6.5'],
+  // octágono con signo de exclamación
+  alerta: ['M8.2 2.5h7.6l5.7 5.7v7.6l-5.7 5.7H8.2l-5.7-5.7V8.2z', 'M12 7v6', 'M12 16.5v.5'],
+  // triángulo con signo de exclamación
+  advertencia: ['M12 3L2.5 20h19z', 'M12 10v4.5', 'M12 17.2v.3'],
+  // círculo con cruz
+  rechazado: ['M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z', 'M8.5 8.5l7 7', 'M15.5 8.5l-7 7'],
+};
+
+function infoInsignia(estado) {
+  switch (estado) {
+    case 'ACEPTADO':
+      return { tipo: 'aceptado', texto: 'Aceptado' };
+    case 'ACEPTADO_CON_ALERTA':
+      return { tipo: 'alerta', texto: 'Alerta' };
+    case 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA':
+      return { tipo: 'alerta', texto: 'Alerta', extra: 'dato sospechoso' };
+    case 'ACEPTADO_CON_ADVERTENCIA':
+      return { tipo: 'advertencia', texto: 'Advertencia' };
+    case 'RECHAZADO':
+      return { tipo: 'rechazado', texto: 'Rechazado' };
+    default:
+      return null;
+  }
+}
+
+function crearInsignia(estado) {
+  const info = infoInsignia(estado);
+  if (!info) return null;
+
+  const insignia = document.createElement('span');
+  insignia.className = 'insignia insignia-' + info.tipo;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'insignia-icono');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (const d of ICONOS[info.tipo]) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+  }
+  insignia.appendChild(svg);
+
+  const etiqueta = document.createElement('span');
+  etiqueta.textContent = info.extra ? `${info.texto} · ${info.extra}` : info.texto;
+  insignia.appendChild(etiqueta);
+
+  return insignia;
+}
+
 function actualizarResumen(contadores) {
   document.getElementById('r-total').textContent = contadores.total;
   document.getElementById('r-aceptadas').textContent = contadores.aceptadas;
@@ -46,6 +104,11 @@ function agregarTarjeta(lineasBitacora, estado) {
 
   const tarjeta = document.createElement('div');
   tarjeta.className = claseParaEstado(estado);
+
+  const insignia = crearInsignia(estado);
+  if (insignia) tarjeta.appendChild(insignia);
+  // La alerta se anuncia de inmediato a lectores de pantalla.
+  if (tarjeta.className === 'tarjeta alerta') tarjeta.setAttribute('role', 'alert');
 
   const [encabezado, ...detalles] = lineasBitacora;
 
