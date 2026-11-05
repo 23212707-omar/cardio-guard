@@ -1,173 +1,379 @@
-:root {
-  --rojo: #b3261e;
-  --rojo-claro: #fdecea;
-  --naranja: #c77700;
-  --naranja-claro: #fff4e0;
-  --verde: #1e7a34;
-  --verde-claro: #e9f7ec;
-  --gris-oscuro: #3a3a3a;
-  --gris-claro: #f1f1f3;
-  --borde: #d8d8dc;
-  color-scheme: light dark;
+/* Cardio Guard — hoja de estilos (paso 1: tokens y base)
+   Los colores de estado (verde, rojo, naranja, gris) solo significan estado.
+   La marca usa azul petróleo y nunca esos cuatro colores.
+   Contrastes medidos (WCAG AA) en claro y oscuro. */
+
+/* ---------- Fuentes autoalojadas (public/fonts/) ---------- */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/IBMPlexSans-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/IBMPlexSans-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/IBMPlexSans-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/IBMPlexMono-400.woff2") format("woff2");
 }
 
-* { box-sizing: border-box; }
+/* ---------- Tokens ---------- */
+:root {
+  color-scheme: light dark;
+
+  /* Tipografía: respaldo del sistema si la fuente no carga */
+  --fuente-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fuente-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace;
+
+  --texto-xs: 0.8125rem;
+  --texto-sm: 0.875rem;
+  --texto-base: 1rem;
+  --texto-lg: 1.125rem;
+  --texto-xl: 1.375rem;
+  --texto-2xl: 1.75rem;
+
+  /* Espacio */
+  --esp-1: 0.25rem;
+  --esp-2: 0.5rem;
+  --esp-3: 0.75rem;
+  --esp-4: 1rem;
+  --esp-5: 1.5rem;
+  --esp-6: 2rem;
+  --esp-7: 3rem;
+
+  /* Forma y profundidad */
+  --radio-sm: 4px;
+  --radio-md: 8px;
+  --sombra-panel: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04);
+
+  --ancho-contenido: 46rem;
+
+  /* Superficies y texto (modo claro) */
+  --fondo: #f4f7f8;
+  --panel: #ffffff;
+  --borde: #d3dce0;
+  --borde-campo: #667882;
+  --tinta: #14232b;
+  --tinta-suave: #465861;
+
+  /* Marca */
+  --marca: #0f4c5c;
+  --marca-hover: #0b3a47;
+  --marca-texto: #ffffff;
+  --foco: #0f4c5c;
+
+  /* Estados: fondo tenue, texto, icono/borde */
+  --ok-fondo: #e6f4ea;
+  --ok-texto: #123d22;
+  --ok-borde: #1b6e3a;
+
+  --alerta-fondo: #fde8e6;
+  --alerta-texto: #5c0f0a;
+  --alerta-borde: #b3261e;
+
+  --adv-fondo: #fff1d6;
+  --adv-texto: #4d2e00;
+  --adv-borde: #8a5200;
+
+  --rech-fondo: #eceff1;
+  --rech-texto: #2a3338;
+  --rech-borde: #5b6770;
+
+  --seleccion: #cfe4ea;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0f1a1f;
+    --panel: #16252c;
+    --borde: #2c3f48;
+    --borde-campo: #7a8d96;
+    --tinta: #e6eef1;
+    --tinta-suave: #a9bac1;
+
+    --marca: #6fc3d6;
+    --marca-hover: #8fd3e2;
+    --marca-texto: #08222b;
+    --foco: #6fc3d6;
+
+    --ok-fondo: #123022;
+    --ok-texto: #cfebd8;
+    --ok-borde: #5cc47f;
+
+    --alerta-fondo: #3a1411;
+    --alerta-texto: #ffd9d5;
+    --alerta-borde: #ff8a80;
+
+    --adv-fondo: #3a2800;
+    --adv-texto: #ffe6b8;
+    --adv-borde: #f0b24a;
+
+    --rech-fondo: #212c31;
+    --rech-texto: #d5dde1;
+    --rech-borde: #8a99a1;
+
+    --seleccion: #24505c;
+    --sombra-panel: none;
+  }
+}
+
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #fafafa;
-  color: #222;
+  font-family: var(--fuente-texto);
+  font-size: var(--texto-base);
+  line-height: 1.5;
+  background: var(--fondo);
+  color: var(--tinta);
 }
 
+::selection {
+  background: var(--seleccion);
+  color: var(--tinta);
+}
+
+:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+input,
+button { font: inherit; }
+
+input { caret-color: var(--marca); }
+
+/* Barras de desplazamiento con la paleta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde-campo) transparent;
+}
+
+code,
+.tarjeta .encabezado {
+  font-family: var(--fuente-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Cabecera ---------- */
 header {
-  background: var(--rojo);
-  color: white;
-  padding: 24px 20px;
+  background: var(--marca);
+  color: var(--marca-texto);
+  padding: var(--esp-5) var(--esp-4);
   text-align: center;
 }
 
-header h1 { margin: 0 0 4px; font-size: 1.8rem; }
-header p { margin: 0; opacity: 0.9; }
+header h1 {
+  margin: 0 0 var(--esp-1);
+  font-size: var(--texto-2xl);
+  font-weight: 600;
+  line-height: 1.2;
+  text-wrap: balance;
+}
 
+header p {
+  margin: 0;
+  font-size: var(--texto-base);
+}
+
+/* ---------- Estructura ---------- */
 main {
-  max-width: 720px;
+  max-width: var(--ancho-contenido);
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--esp-5) var(--esp-4);
 }
 
-.formulario {
-  background: white;
+.formulario,
+.resumen {
+  background: var(--panel);
   border: 1px solid var(--borde);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 16px;
+  border-radius: var(--radio-md);
+  box-shadow: var(--sombra-panel);
+  margin-bottom: var(--esp-4);
 }
+
+/* ---------- Formulario ---------- */
+.formulario { padding: var(--esp-4); }
 
 .formulario label {
   display: block;
-  font-weight: bold;
-  margin-bottom: 6px;
+  margin-bottom: var(--esp-2);
+  font-weight: 600;
 }
 
 .fila-formulario {
   display: flex;
-  gap: 8px;
+  gap: var(--esp-2);
 }
 
 .fila-formulario input {
   flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--borde);
-  border-radius: 6px;
-  font-size: 1rem;
-  font-family: "Courier New", monospace;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--borde-campo);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+  font-family: var(--fuente-mono);
+  font-size: var(--texto-base);
+}
+
+.fila-formulario input::placeholder {
+  color: var(--tinta-suave);
+  opacity: 1;
 }
 
 .fila-formulario button {
-  padding: 10px 18px;
-  border: none;
-  border-radius: 6px;
-  background: var(--rojo);
-  color: white;
-  font-size: 1rem;
+  min-height: 44px;
+  padding: var(--esp-2) var(--esp-5);
+  border: 1px solid transparent;
+  border-radius: var(--radio-sm);
+  background: var(--marca);
+  color: var(--marca-texto);
+  font-weight: 600;
   cursor: pointer;
 }
 
-.fila-formulario button:hover { background: #8f1e18; }
-.fila-formulario button:disabled { background: #bbb; cursor: wait; }
+.fila-formulario button:hover { background: var(--marca-hover); }
+
+.fila-formulario button:disabled {
+  background: var(--rech-fondo);
+  color: var(--rech-texto);
+  border-color: var(--rech-borde);
+  cursor: wait;
+}
 
 .ayuda {
-  margin: 10px 0 0;
-  font-size: 0.85rem;
-  color: #666;
+  margin: var(--esp-3) 0 0;
+  font-size: var(--texto-sm);
+  color: var(--tinta-suave);
 }
 
 .ayuda code {
-  background: var(--gris-claro);
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px var(--esp-2);
+  border-radius: var(--radio-sm);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  color: var(--tinta);
+  font-size: var(--texto-xs);
 }
 
+/* ---------- Resumen ---------- */
 .resumen {
   display: flex;
   justify-content: space-between;
-  background: white;
-  border: 1px solid var(--borde);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
   text-align: center;
 }
 
 .resumen .etiqueta {
   display: block;
-  font-size: 0.75rem;
-  color: #777;
+  font-size: var(--texto-xs);
+  color: var(--tinta-suave);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.resumen strong { font-size: 1.3rem; }
+.resumen strong {
+  font-size: var(--texto-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
+/* ---------- Bitácora ---------- */
 .historial {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--esp-3);
 }
 
 .vacio {
+  margin: var(--esp-5) 0;
   text-align: center;
-  color: #888;
-  font-style: italic;
+  color: var(--tinta-suave);
 }
 
 .tarjeta {
-  border-radius: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--borde);
-  background: var(--gris-claro);
-  color: var(--gris-oscuro);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--rech-borde);
+  border-radius: var(--radio-md);
+  background: var(--rech-fondo);
+  color: var(--rech-texto);
 }
 
 .tarjeta .encabezado {
-  margin: 0 0 4px;
-  font-weight: bold;
-  font-family: "Courier New", monospace;
+  margin: 0 0 var(--esp-1);
+  font-weight: 400;
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
 }
 
 .tarjeta .detalle {
-  margin: 2px 0;
-  font-size: 0.92rem;
+  margin: var(--esp-1) 0 0;
+  font-size: var(--texto-sm);
 }
 
 .tarjeta.aceptado {
-  background: var(--verde-claro);
-  border-color: var(--verde);
-  color: #14401f;
+  background: var(--ok-fondo);
+  border-color: var(--ok-borde);
+  color: var(--ok-texto);
 }
 
 .tarjeta.alerta {
-  background: var(--rojo-claro);
-  border-color: var(--rojo);
-  color: #5c140f;
+  background: var(--alerta-fondo);
+  border-color: var(--alerta-borde);
+  color: var(--alerta-texto);
 }
 
 .tarjeta.advertencia {
-  background: var(--naranja-claro);
-  border-color: var(--naranja);
-  color: #5c3c00;
+  background: var(--adv-fondo);
+  border-color: var(--adv-borde);
+  color: var(--adv-texto);
 }
 
 .tarjeta.rechazado {
-  background: #ececec;
-  border-color: #999;
-  color: #3a3a3a;
+  background: var(--rech-fondo);
+  border-color: var(--rech-borde);
+  color: var(--rech-texto);
 }
 
-@media (prefers-color-scheme: dark) {
-  body { background: #17181a; color: #eee; }
-  .formulario, .resumen { background: #1f2022; border-color: #333; }
-  .fila-formulario input { background: #111; color: #eee; border-color: #444; }
-  .ayuda code { background: #2a2b2d; }
-  .tarjeta { background: #2a2b2d; border-color: #444; color: #ddd; }
+/* ---------- Adaptación mínima ---------- */
+@media (max-width: 30rem) {
+  .fila-formulario { flex-direction: column; }
+  .resumen { flex-wrap: wrap; }
+  .resumen > div { flex: 1 1 40%; }
+}
+
+/* ---------- Movimiento reducido ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
