@@ -31,6 +31,39 @@ for (const [s, d] of [[118, 76], [125, 75], [135, 85], [150, 95], [190, 125], [2
   console.log(`${s}/${d} -> ${c.nombre} (nivel ${c.nivel})`);
 }
 
+// Fronteras de la tabla NOM-030-SSA2-2017 (y la crisis encima de grado 3).
+// Cada caso prueba el valor justo en el límite de una categoría.
+console.log('\n=== clasificarPresion: fronteras NOM-030 ===');
+const casosNOM = [
+  [119, 79, 'Óptima'],
+  [120, 70, 'Subóptima'],             // sistólica entra a subóptima
+  [110, 80, 'Subóptima'],             // diastólica entra a subóptima
+  [120, 80, 'Subóptima'],             // antes (AHA) era "Hipertensión etapa 1"
+  [129, 84, 'Subóptima'],
+  [130, 75, 'Limítrofe'],
+  [125, 85, 'Limítrofe'],             // gana la más alta (la diastólica)
+  [139, 89, 'Limítrofe'],
+  [140, 80, 'Hipertensión grado 1'],  // sistólica aislada -> grado por sistólica
+  [135, 90, 'Hipertensión grado 1'],
+  [159, 99, 'Hipertensión grado 1'],
+  [160, 90, 'Hipertensión grado 2'],
+  [150, 100, 'Hipertensión grado 2'],
+  [179, 109, 'Hipertensión grado 2'],
+  [180, 100, 'Hipertensión grado 3'],
+  [170, 110, 'Hipertensión grado 3'],
+  [180, 120, 'Hipertensión grado 3'], // aún no pasa el umbral de crisis
+  [181, 100, 'Crisis hipertensiva'],
+  [170, 121, 'Crisis hipertensiva'],
+];
+let fallas = 0;
+for (const [s, d, esperado] of casosNOM) {
+  const obtenido = clasificarPresion(s, d).nombre;
+  const ok = obtenido === esperado;
+  if (!ok) fallas += 1;
+  console.log(`[${ok ? 'OK' : 'FALLA'}] ${s}/${d} -> ${obtenido}${ok ? '' : ` (esperado: ${esperado})`}`);
+}
+console.log(fallas === 0 ? 'Todas las fronteras correctas.' : `${fallas} frontera(s) incorrecta(s).`);
+
 console.log('\n=== clasificarFrecuencia ===');
 for (const f of [50, 72, 105]) {
   const c = clasificarFrecuencia(f);
@@ -54,3 +87,24 @@ console.log('\n=== compararConUltimaRevision (caso mixto: presión mejora, frecu
 const anteriorMixto = { sistolica: 125, diastolica: 80, frecuencia: 78 };
 const actualMixto = { sistolica: 118, diastolica: 76, frecuencia: 105 };
 console.log(JSON.stringify(compararConUltimaRevision(actualMixto, anteriorMixto), null, 2));
+
+console.log('\n=== validarConsulta ===');
+const { validarConsulta } = require('../src/semantics/validarConsulta');
+const idsConsulta = new Set(['P001', 'P002']);
+const rConOk = validarConsulta({ tipo: 'CON', id: 'P001' }, idsConsulta);
+const rConNo = validarConsulta({ tipo: 'CON', id: 'P009' }, idsConsulta);
+console.log(`[${rConOk.ok ? 'OK' : 'FALLÓ'}] P001 existe -> ok`);
+console.log(`[${!rConNo.ok && rConNo.mensaje === 'Error Semántico: paciente P009 no encontrado.' ? 'OK' : 'FALLÓ'}] P009 no existe -> rechazo: ${rConNo.mensaje}`);
+
+console.log('\n=== esDatoSospechoso / describirRevision ===');
+{
+  const { esDatoSospechoso, describirRevision } = require('../src/semantics/clasificacion');
+  const ok = (d, c) => console.log(`[${c ? 'OK' : 'FALLÓ'}] ${d}`);
+  ok('250/150 no es sospechoso', !esDatoSospechoso(250, 150));
+  ok('251/100 sí', esDatoSospechoso(251, 100));
+  ok('120/151 sí', esDatoSospechoso(120, 151));
+  ok('describirRevision(null) = null', describirRevision(null) === null);
+  const d = describirRevision({ sistolica: 260, diastolica: 70, frecuencia: 50 });
+  ok('260/70, 50 lpm -> Crisis + sospechoso + Bradicardia',
+    d.crisis && d.datoSospechoso && d.frecuencia.nombre === 'Bradicardia');
+}

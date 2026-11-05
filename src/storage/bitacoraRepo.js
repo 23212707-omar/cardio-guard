@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { fechaLocal } = require('../utils/fecha');
 
 /**
  * bitacoraRepo.js — Repositorio de bitácora de Cardio Guard
@@ -19,7 +18,28 @@ function pad(numero) {
   return String(numero).padStart(2, '0');
 }
 
-/** Arma el sufijo FECHA_HORA del nombre de archivo a partir de un Date. */
+/**
+ * Fecha local en formato YYYY-MM-DD.
+ *
+ * No se usa `fecha.toISOString().slice(0, 10)` a propósito: toISOString()
+ * da la fecha en UTC, no en la hora local de la computadora. En Tijuana
+ * (UTC-7/UTC-8), después de las 4-5 pm la fecha UTC ya es la de MAÑANA,
+ * así que las revisiones se guardaban con un día de más y no coincidían
+ * con la fecha del nombre de la bitácora (que sí usa hora local).
+ */
+function fechaLocalISO(fecha) {
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+}
+
+/**
+ * Fecha y hora local en formato "YYYY-MM-DD HH:MM" (la que se guarda en cada
+ * revisión). Mismo motivo que fechaLocalISO: nunca toISOString() (UTC).
+ */
+function fechaHoraLocal(fecha) {
+  return `${fechaLocalISO(fecha)} ${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
+}
+
+/** Arma el sufijo FECHA_HORA del nombre de archivo a partir de un Date (hora local). */
 function timestampArchivo(fecha) {
   const y = fecha.getFullYear();
   const m = pad(fecha.getMonth() + 1);
@@ -42,7 +62,7 @@ class BitacoraRepo {
 
     this.nombreArchivo = `bitacora_${timestampArchivo(fecha)}.txt`;
     this.rutaArchivo = path.join(carpeta, this.nombreArchivo);
-    this.fechaProcesamiento = fechaLocal(fecha); // YYYY-MM-DD, hora local
+    this.fechaProcesamiento = fechaLocalISO(fecha); // YYYY-MM-DD, hora local
 
     // Si por alguna razón el archivo ya existe (ej. dos ejecuciones en el
     // mismo minuto), no se sobrescribe: se le agrega un sufijo numérico.
@@ -99,4 +119,4 @@ function crearBitacora(carpeta, fecha) {
   return new BitacoraRepo(carpeta, fecha);
 }
 
-module.exports = { BitacoraRepo, crearBitacora };
+module.exports = { BitacoraRepo, crearBitacora, fechaLocalISO, fechaHoraLocal };

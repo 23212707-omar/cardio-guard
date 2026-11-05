@@ -9,6 +9,9 @@ const casos = [
   'P002; 190/125, 110',
   'P002; 120/-80, 75',   // debe producir tokens: ..., SLASH, GUION, NUM(80), ...
   'P009; 120/80, 70',
+  'CONSULTAR P001',
+  'LISTAR',
+  'consultar P001',      // minúsculas: no es palabra reservada (LETRA + ID)
   'P001; 120/80, 70$',   // '$' no es un símbolo válido -> debe lanzar ErrorLexico
 ];
 

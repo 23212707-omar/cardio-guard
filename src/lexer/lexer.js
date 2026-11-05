@@ -10,6 +10,8 @@
  *
  * Tokens que puede producir (ver sección 4.2 del documento de contexto):
  *   REGISTRAR    palabra reservada
+ *   CONSULTAR    palabra reservada
+ *   LISTAR       palabra reservada
  *   ID           letra P seguida de uno o más dígitos (ej. P001)
  *   NUM          uno o más dígitos (ej. 118)
  *   SANGRE       una o más letras seguidas inmediatamente de + o -
@@ -30,6 +32,8 @@
 
 const TIPO = Object.freeze({
   REGISTRAR: 'REGISTRAR',
+  CONSULTAR: 'CONSULTAR',
+  LISTAR: 'LISTAR',
   ID: 'ID',
   NUM: 'NUM',
   SANGRE: 'SANGRE',
@@ -43,9 +47,15 @@ const TIPO = Object.freeze({
 
 /** Error léxico: símbolo que no coincide con ningún token válido. */
 class ErrorLexico extends Error {
-  constructor(mensaje, posicion) {
-    super(mensaje);
+  /**
+   * @param {string} detalle - qué falló, en minúsculas (ej. 'símbolo no reconocido "@"');
+   *   es el texto que se muestra junto al marcador "^".
+   * @param {number} posicion - índice del carácter con la falla dentro de la línea.
+   */
+  constructor(detalle, posicion) {
+    super(detalle.charAt(0).toUpperCase() + detalle.slice(1));
     this.name = 'ErrorLexico';
+    this.detalle = detalle;
     this.posicion = posicion;
   }
 }
@@ -55,6 +65,8 @@ class ErrorLexico extends Error {
 // pertenece a una regla más concreta (como REGISTRAR o SANGRE).
 const REGLAS = [
   { tipo: TIPO.REGISTRAR, regex: /^REGISTRAR\b/ },
+  { tipo: TIPO.CONSULTAR, regex: /^CONSULTAR\b/ },
+  { tipo: TIPO.LISTAR, regex: /^LISTAR\b/ },
   { tipo: TIPO.ID, regex: /^P\d+/ },
   { tipo: TIPO.SANGRE, regex: /^[A-Za-z]+[+-]/ },
   { tipo: TIPO.NUM, regex: /^\d+/ },
@@ -90,10 +102,7 @@ function analizarLexico(linea) {
       .find((r) => r.m !== null);
 
     if (!coincidencia) {
-      throw new ErrorLexico(
-        `Símbolo no reconocido: "${resto[0]}"`,
-        posicion
-      );
+      throw new ErrorLexico(`símbolo no reconocido "${resto[0]}"`, posicion);
     }
 
     const { regla, m } = coincidencia;

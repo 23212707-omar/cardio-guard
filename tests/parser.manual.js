@@ -12,6 +12,12 @@ const casos = [
   'REGISTRAR P001, 45, M',              // error genérico: falta ", sangre"
   'P001; 120/80, 70 90',                // error genérico: sobra texto al final
   '120/80, 70',                         // error: no empieza con REGISTRAR ni con un ID
+  'CONSULTAR P001',                     // CON válido
+  'LISTAR',                             // LIS válido
+  'CONSULTAR',                          // error: falta el ID (^ al final)
+  'CONSULTAR P001 P002',                // error: sobra texto
+  'LISTAR P001',                        // error: LISTAR no admite argumentos
+  'CONSULTAR 45',                       // error: se esperaba el ID
 ];
 
 for (const linea of casos) {

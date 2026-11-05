@@ -6,7 +6,6 @@ const express = require('express');
 const { crearPacientesRepo } = require('./storage/pacientesRepo');
 const { crearBitacora } = require('./storage/bitacoraRepo');
 const { crearInterpreter } = require('./interpreter');
-const { fechaLocal } = require('./utils/fecha');
 
 /**
  * server.js — Servidor de Cardio Guard
@@ -34,9 +33,13 @@ const RUTA_PUBLIC = path.join(__dirname, '..', 'public');
 const PUERTO = process.env.PUERTO || 3000;
 
 const pacientesRepo = crearPacientesRepo(RUTA_PACIENTES);
-const fechaProcesamiento = fechaLocal();
 const bitacora = crearBitacora(RUTA_BITACORAS, new Date());
-const interpreter = crearInterpreter({ pacientesRepo, fechaProcesamiento });
+// Fecha de arranque (hora local), solo informativa: encabezado de la bitácora
+// y /api/estado. Las revisiones usan la fecha y hora de cada instrucción.
+const fechaProcesamiento = bitacora.fechaProcesamiento;
+// La fecha y hora de cada revisión se toman por instrucción (hora local),
+// no al arrancar: el interpreter recibe el reloj.
+const interpreter = crearInterpreter({ pacientesRepo, ahora: () => new Date() });
 
 // Contadores en memoria para el resumen en vivo del frontend. Se reinician
 // junto con el servidor, igual que la bitácora.

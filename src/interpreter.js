@@ -3,12 +3,16 @@
 const { analizarLexico, ErrorLexico } = require('./lexer/lexer');
 const { analizarSintactico, ErrorSintactico } = require('./parser/parser');
 const { crearAFD, EVENTO } = require('./automaton/afd');
+const { construirMarcador } = require('./diagnostico');
+const { fechaHoraLocal } = require('./storage/bitacoraRepo');
 const { validarRegistro } = require('./semantics/validarRegistro');
 const { validarLectura } = require('./semantics/validarLectura');
+const { validarConsulta } = require('./semantics/validarConsulta');
 const {
   clasificarPresion,
   determinarAvisoClasificacion,
   compararConUltimaRevision,
+  describirRevision,
 } = require('./semantics/clasificacion');
 
 /**
@@ -24,11 +28,16 @@ const {
  * original, sin un texto exacto). Se agregan aquí como un primer borrador
  * razonable; convendría que el equipo las revise y las ajuste a su gusto.
  */
+// Las llaves deben coincidir EXACTAMENTE con los nombres de
+// CATEGORIAS_PRESION en semantics/clasificacion.js (NOM-030-SSA2-2017).
+// Si no coinciden, la recomendación simplemente no aparece (no truena).
 const RECOMENDACIONES_PRESION = {
-  Normal: 'Mantener hábitos actuales y control periódico.',
-  Elevada: 'Vigilar la presión con mayor frecuencia y moderar el consumo de sodio.',
-  'Hipertensión etapa 1': 'Control periódico, reducir sodio y aumentar la actividad física.',
-  'Hipertensión etapa 2': 'Se recomienda valoración médica a la brevedad.',
+  'Óptima': 'Mantener hábitos actuales y control periódico.',
+  'Subóptima': 'Vigilar la presión con mayor frecuencia y moderar el consumo de sodio.',
+  'Limítrofe': 'Control periódico, reducir sodio y aumentar la actividad física.',
+  'Hipertensión grado 1': 'Se recomienda valoración médica para confirmar el diagnóstico con varias mediciones.',
+  'Hipertensión grado 2': 'Se recomienda valoración médica a la brevedad.',
+  'Hipertensión grado 3': 'Se requiere valoración médica urgente.',
   // "Crisis hipertensiva" no lleva recomendación genérica: ya se muestra
   // la alerta de protocolo de emergencia, que es lo relevante en ese caso.
 };
@@ -53,13 +62,13 @@ function numeroDeLinea(n) {
 
 /**
  * @param {{pacientesRepo: import('./storage/pacientesRepo').PacientesRepo,
- *          fechaProcesamiento: string}} dependencias
- *   fechaProcesamiento (YYYY-MM-DD): la fecha que se asigna a toda revisión
- *   aceptada en esta ejecución. Se recibe como parámetro, en vez de leer
- *   `new Date()` internamente, para que todo el lote use la misma fecha y
- *   para que este módulo se pueda probar con una fecha fija y predecible.
+ *          ahora: () => Date}} dependencias
+ *   ahora: reloj que regresa un Date. Se consulta UNA vez por cada lectura
+ *   aceptada, y la fecha y hora (locales, "YYYY-MM-DD HH:MM") se guardan en
+ *   la revisión. Se recibe como parámetro, en vez de leer `new Date()`
+ *   internamente, para poder probar este módulo con un reloj fijo.
  */
-function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
+function crearInterpreter({ pacientesRepo, ahora }) {
   /**
    * Procesa una instrucción y regresa tanto el resultado "programático"
    * (para la interfaz web / server.js) como las líneas ya formateadas
@@ -78,7 +87,7 @@ function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
       afd.transitar(EVENTO.LEXICO_SINTACTICO_ERROR);
       return rechazarPorEntrada(
         afd, numeroLinea, textoOriginal, 'LEXICO',
-        `Error Léxico en la línea ${numeroLinea}: ${err.message}`
+        `Error Léxico en la línea ${numeroLinea}: Símbolo no reconocido`, err
       );
     }
 
@@ -90,15 +99,85 @@ function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
       afd.transitar(EVENTO.LEXICO_SINTACTICO_ERROR);
       return rechazarPorEntrada(
         afd, numeroLinea, textoOriginal, 'SINTACTICO',
-        `Error de Sintaxis en la línea ${numeroLinea}: ${err.message}`
+        `Error de Sintaxis en la línea ${numeroLinea}: Estructura de tokens inválida`, err
       );
     }
 
-    afd.transitar(arbol.tipo === 'REG' ? EVENTO.LEXICO_SINTACTICO_OK_REG : EVENTO.LEXICO_SINTACTICO_OK_LEC);
+    switch (arbol.tipo) {
+      case 'REG':
+        afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_REG);
+        return procesarRegistro(afd, arbol, numeroLinea);
+      case 'CON':
+        afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_CON);
+        return procesarConsulta(afd, arbol, numeroLinea);
+      case 'LIS':
+        afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_LIS);
+        return procesarListado(afd, numeroLinea);
+      default:
+        afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_LEC);
+        return procesarLectura(afd, arbol, numeroLinea);
+    }
+  }
 
-    return arbol.tipo === 'REG'
-      ? procesarRegistro(afd, arbol, numeroLinea)
-      : procesarLectura(afd, arbol, numeroLinea);
+  // --- Instrucciones de solo lectura: CONSULTAR y LISTAR (no tocan pacientes.csv) ---
+
+  /** Texto de una revisión guardada, con su categoría NOM-030, la de frecuencia y los avisos. */
+  function resumenRevision(rev) {
+    const desc = describirRevision(rev);
+    if (!desc) return 'sin revisiones previas';
+    const avisos = [];
+    if (desc.crisis) avisos.push('[CRISIS HIPERTENSIVA]');
+    if (desc.datoSospechoso) avisos.push('[DATO SOSPECHOSO]');
+    return `${rev.sistolica}/${rev.diastolica} mmHg, ${rev.frecuencia} lpm (${rev.fecha}) — ` +
+      `${desc.presion.nombre}, FC ${desc.frecuencia.nombre}` +
+      (avisos.length ? ` ${avisos.join(' ')}` : '');
+  }
+
+  /** Copia del paciente con la clasificación de su última revisión (null si no tiene). */
+  function conClasificacion(paciente) {
+    return { ...paciente, clasificacion: describirRevision(paciente.ultimaRevision) };
+  }
+
+  function procesarConsulta(afd, arbol, numeroLinea) {
+    const encabezado = `CONSULTAR ${arbol.id}`;
+    const validacion = validarConsulta(arbol, pacientesRepo.idsExistentes());
+
+    if (!validacion.ok) {
+      afd.transitar(EVENTO.CONSULTA_PACIENTE_NO_ENCONTRADO);
+      return construirResultado({
+        afd, numeroLinea, encabezado, instruccion: 'CONSULTA',
+        detalles: [validacion.mensaje], tipo: 'SEMANTICO', mensaje: validacion.mensaje,
+      });
+    }
+    afd.transitar(EVENTO.CONSULTA_PACIENTE_ENCONTRADO);
+
+    // listar() regresa copias: el resultado no comparte referencias con el repositorio.
+    const paciente = pacientesRepo.listar().find((p) => p.id === arbol.id);
+    return construirResultado({
+      afd, numeroLinea, encabezado, instruccion: 'CONSULTA',
+      detalles: [
+        `${paciente.edad} años, ${paciente.sexo}, ${paciente.sangre}.`,
+        `Última revisión: ${resumenRevision(paciente.ultimaRevision)}.`,
+      ],
+      extra: { id: paciente.id, paciente: conClasificacion(paciente) },
+    });
+  }
+
+  function procesarListado(afd, numeroLinea) {
+    afd.transitar(EVENTO.LISTADO_OK);
+    const pacientes = pacientesRepo.listar();
+    const detalles = pacientes.length === 0
+      ? ['No hay pacientes registrados.']
+      : [
+          `${pacientes.length} paciente(s) registrado(s):`,
+          ...pacientes.map(
+            (p) => `${p.id} | ${p.edad} años, ${p.sexo}, ${p.sangre} | ${resumenRevision(p.ultimaRevision)}`
+          ),
+        ];
+    return construirResultado({
+      afd, numeroLinea, encabezado: 'LISTAR', instruccion: 'LISTADO',
+      detalles, extra: { total: pacientes.length, pacientes: pacientes.map(conClasificacion) },
+    });
   }
 
   // --- Instrucción REGISTRAR ---
@@ -175,7 +254,7 @@ function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
     // punto pudo haber terminado en rechazo, y un rechazo no debe tocar
     // pacientes.csv (sección 6.2 del documento de contexto).
     pacientesRepo.actualizarRevision(arbol.id, {
-      fecha: fechaProcesamiento,
+      fecha: fechaHoraLocal(ahora()),
       sistolica: arbol.sistolica,
       diastolica: arbol.diastolica,
       frecuencia: arbol.frecuencia,
@@ -221,19 +300,29 @@ function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
 
   // --- Helpers compartidos ---
 
-  /** Rechazo por error léxico o sintáctico (todavía no hay árbol ni se sabe REG/LEC). */
-  function rechazarPorEntrada(afd, numeroLinea, textoOriginal, tipo, mensaje) {
+  /**
+   * Rechazo por error léxico o sintáctico (todavía no hay árbol ni se sabe REG/LEC).
+   * `mensaje` es el encabezado general; el motivo y la posición exacta salen
+   * de `error` (detalle y posicion) y se muestran con un "^" bajo la falla.
+   */
+  function rechazarPorEntrada(afd, numeroLinea, textoOriginal, tipo, mensaje, error) {
+    const diagnostico = construirMarcador(textoOriginal, error.posicion, error.detalle);
     return {
       resultado: {
         estado: 'RECHAZADO',
         tipo,
         linea: numeroLinea,
         mensaje,
+        posicion: error.posicion,
+        detalle: error.detalle,
+        diagnostico,
         recorridoAFD: afd.historial,
       },
       lineasBitacora: [
         `[LÍNEA ${numeroDeLinea(numeroLinea)}] ${textoOriginal} -> ESTADO: ${TEXTO_ESTADO.RECHAZADO}`,
         `   ${mensaje}`,
+        `   ${diagnostico.instruccion}`,
+        `   ${diagnostico.marcador}`,
       ],
     };
   }
@@ -246,6 +335,10 @@ function crearInterpreter({ pacientesRepo, fechaProcesamiento }) {
     let textoEstado = TEXTO_ESTADO[estado];
     if (!esRechazo && instruccion === 'REGISTRO') {
       textoEstado = 'Aceptado (Paciente registrado)';
+    } else if (!esRechazo && instruccion === 'CONSULTA') {
+      textoEstado = 'Aceptado (Consulta)';
+    } else if (!esRechazo && instruccion === 'LISTADO') {
+      textoEstado = 'Aceptado (Listado)';
     } else if (!esRechazo && instruccion === 'LECTURA' && estado === 'ACEPTADO') {
       textoEstado = `Aceptado (${extra.clasificacionPresion.nombre})`;
     }
