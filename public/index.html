@@ -8,39 +8,220 @@
 </head>
 <body>
 
-<header>
+<a class="salto" href="#contenido">Saltar al contenido</a>
+
+<header class="cabecera">
   <h1>Cardio Guard</h1>
   <p>Intérprete para el monitoreo de presión arterial y frecuencia cardíaca</p>
+  <nav class="cabecera-nav" aria-label="Principal">
+    <a href="index.html" aria-current="page">Inicio</a>
+    <a href="about.html">Acerca de</a>
+  </nav>
 </header>
 
-<main>
-  <section class="formulario">
-    <label for="instruccion">Instrucción</label>
-    <div class="fila-formulario">
-      <input
-        type="text"
-        id="instruccion"
-        autocomplete="off"
-        placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
-      >
-      <button id="enviar">Procesar</button>
+<main id="contenido">
+  <section class="formulario" aria-labelledby="captura-titulo">
+    <h2 class="solo-lector" id="captura-titulo">Captura de instrucción</h2>
+    <div class="pestanas" role="tablist" aria-label="Tipo de captura">
+      <button type="button" class="pestana" role="tab" id="tab-registro" aria-controls="panel-registro" aria-selected="true" tabindex="0" data-captura="registro">Registrar paciente</button>
+      <button type="button" class="pestana" role="tab" id="tab-lectura" aria-controls="panel-lectura" aria-selected="false" tabindex="-1" data-captura="lectura">Registrar lectura</button>
+      <button type="button" class="pestana" role="tab" id="tab-directa" aria-controls="panel-directa" aria-selected="false" tabindex="-1" data-captura="directa">Instrucción directa</button>
     </div>
-    <p class="ayuda">
-      Ejemplos: <code>REGISTRAR P001, 45, M, O+</code> &nbsp;|&nbsp; <code>P001; 118/76, 75</code>
+
+    <!-- Los campos solo arman el texto de la instrucción: no validan nada.
+         Sin type="number", límites ni required; el intérprete es quien rechaza.
+         Los datalist solo sugieren: se puede escribir cualquier valor. -->
+    <form id="captura" novalidate>
+      <div role="tabpanel" id="panel-registro" aria-labelledby="tab-registro" data-captura="registro">
+        <div class="campos">
+          <div class="campo">
+            <label for="reg-id">ID del paciente</label>
+            <input type="text" id="reg-id" data-nombre="ID" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-edad">Edad</label>
+            <input type="text" id="reg-edad" data-nombre="edad" placeholder="ej. 45" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-sexo">Sexo</label>
+            <input type="text" id="reg-sexo" data-nombre="sexo" list="lista-sexo" placeholder="ej. M" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="reg-sangre">Tipo de sangre</label>
+            <input type="text" id="reg-sangre" data-nombre="tipo de sangre" list="lista-sangre" placeholder="ej. O+" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+        </div>
+      </div>
+
+      <div role="tabpanel" id="panel-lectura" aria-labelledby="tab-lectura" data-captura="lectura" hidden>
+        <div class="campos">
+          <div class="campo">
+            <label for="lec-id">ID del paciente</label>
+            <input type="text" id="lec-id" data-nombre="ID" list="lista-pacientes" placeholder="ej. P001" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-sis">Presión sistólica</label>
+            <input type="text" id="lec-sis" data-nombre="sistólica" placeholder="ej. 118" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-dia">Presión diastólica</label>
+            <input type="text" id="lec-dia" data-nombre="diastólica" placeholder="ej. 76" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+          <div class="campo">
+            <label for="lec-fc">Frecuencia cardíaca</label>
+            <input type="text" id="lec-fc" data-nombre="frecuencia" placeholder="ej. 75" autocomplete="off" aria-describedby="error-instruccion">
+          </div>
+        </div>
+      </div>
+
+      <div role="tabpanel" id="panel-directa" aria-labelledby="tab-directa" data-captura="directa" hidden>
+        <div class="campo">
+          <label for="instruccion">Instrucción</label>
+          <input
+            type="text"
+            id="instruccion"
+            data-nombre="instrucción"
+            autocomplete="off"
+            placeholder="REGISTRAR P001, 45, M, O+   ó   P001; 118/76, 75"
+            aria-describedby="error-instruccion"
+          >
+        </div>
+        <div class="ejemplos">
+          <span class="ejemplos-titulo" id="ejemplos-titulo">Ejemplos (pulsa para rellenar):</span>
+          <ul class="chips" aria-labelledby="ejemplos-titulo">
+            <li><button type="button" class="chip" data-ejemplo="REGISTRAR P001, 45, M, O+">REGISTRAR P001, 45, M, O+</button></li>
+            <li><button type="button" class="chip" data-ejemplo="P001; 118/76, 75">P001; 118/76, 75</button></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Solo sugiere IDs de esta sesión; no restringe lo que se escribe. -->
+      <datalist id="lista-pacientes"></datalist>
+      <datalist id="lista-sexo">
+        <option value="M"></option>
+        <option value="F"></option>
+      </datalist>
+      <datalist id="lista-sangre">
+        <option value="A+"></option>
+        <option value="A-"></option>
+        <option value="B+"></option>
+        <option value="B-"></option>
+        <option value="AB+"></option>
+        <option value="AB-"></option>
+        <option value="O+"></option>
+        <option value="O-"></option>
+      </datalist>
+
+      <p class="error-linea" id="error-instruccion" aria-live="polite"></p>
+
+      <div class="fila-envio">
+        <p class="vista-previa" id="vista-previa">
+          <span class="vista-previa-etiqueta">Se enviará</span>
+          <code id="vista-previa-texto"></code>
+        </p>
+        <button id="enviar" class="boton-enviar" type="submit"><span class="boton-giro" aria-hidden="true"></span><span id="enviar-texto">Procesar</span></button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Ayuda de formato: contenido estático, sin llamadas a la API. -->
+  <details class="ayuda" id="ayuda">
+    <summary>¿Cómo escribo una instrucción?</summary>
+    <div class="ayuda-cuerpo">
+      <h2 class="ayuda-titulo">Registrar un paciente</h2>
+      <p><code>REGISTRAR P001, 45, M, O+</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>ID</dt><dd>Identificador del paciente, por ejemplo <code>P001</code>.</dd></div>
+        <div><dt>Edad</dt><dd>Edad en años, por ejemplo <code>45</code>.</dd></div>
+        <div><dt>Sexo</dt><dd>Valores válidos: <code>M</code> o <code>F</code>.</dd></div>
+        <div><dt>Tipo de sangre</dt><dd>Valores válidos: <code>A+</code>, <code>A-</code>, <code>B+</code>, <code>B-</code>, <code>AB+</code>, <code>AB-</code>, <code>O+</code>, <code>O-</code>.</dd></div>
+      </dl>
+
+      <h2 class="ayuda-titulo">Registrar una lectura</h2>
+      <p><code>P001; 118/76, 75</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>ID</dt><dd>El paciente al que pertenece la lectura, seguido de <code>;</code>.</dd></div>
+        <div><dt>Presión</dt><dd>Sistólica y diastólica en mmHg, separadas por <code>/</code> (<code>118/76</code>).</dd></div>
+        <div><dt>Frecuencia</dt><dd>Frecuencia cardíaca, después de una coma (<code>75</code>).</dd></div>
+      </dl>
+
+      <h2 class="ayuda-titulo">Qué significa cada estado</h2>
+      <ul class="ayuda-estados">
+        <li>
+          <span class="insignia insignia-aceptado"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z"/><path d="M7.5 12.5l3 3 6-6.5"/></svg><span>Aceptado</span></span>
+          <span>La instrucción es válida y quedó registrada.</span>
+        </li>
+        <li>
+          <span class="insignia insignia-alerta"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.2 2.5h7.6l5.7 5.7v7.6l-5.7 5.7H8.2l-5.7-5.7V8.2z"/><path d="M12 7v6"/><path d="M12 16.5v.5"/></svg><span>Alerta</span></span>
+          <span>Se detectó una crisis hipertensiva (alerta roja).</span>
+        </li>
+        <li>
+          <span class="insignia insignia-advertencia"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3L2.5 20h19z"/><path d="M12 10v4.5"/><path d="M12 17.2v.3"/></svg><span>Advertencia</span></span>
+          <span>Dato sospechoso: valor fuera del rango fisiológico habitual; verifica la captura. Hoy aparece junto con una alerta, porque esos valores también son una crisis: se muestra como «ALERTA · DATO SOSPECHOSO».</span>
+        </li>
+        <li>
+          <span class="insignia insignia-rechazado"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z"/><path d="M8.5 8.5l7 7"/><path d="M15.5 8.5l-7 7"/></svg><span>Rechazado</span></span>
+          <span>La instrucción tiene un error léxico, de sintaxis o semántico y no se procesó.</span>
+        </li>
+      </ul>
+
+      <p class="ayuda-nota">Los resultados son de carácter orientativo, no son un diagnóstico médico.</p>
+    </div>
+  </details>
+
+  <!-- Contadores de la ejecución del servidor (vienen de la API; no se
+       reinician al recargar la página). Con la API caída se quedan en cero. -->
+  <section class="resumen" id="resumen" aria-labelledby="resumen-titulo">
+    <h2 class="solo-lector" id="resumen-titulo">Resumen de la ejecución</h2>
+    <dl class="resumen-cifras">
+      <div class="cifra cifra-total"><dt>Procesadas</dt><dd id="r-total">0</dd></div>
+      <div class="cifra cifra-aceptado"><dt>Aceptadas</dt><dd id="r-aceptadas">0</dd></div>
+      <div class="cifra cifra-alerta"><dt>Con alerta</dt><dd id="r-alerta">0</dd></div>
+      <div class="cifra cifra-rechazado"><dt>Rechazadas</dt><dd id="r-rechazadas">0</dd></div>
+    </dl>
+    <p class="resumen-desglose" id="r-desglose" hidden>
+      Rechazos: <strong id="r-sintaxis">0</strong> de sintaxis · <strong id="r-semanticos">0</strong> semánticos
+    </p>
+    <p class="resumen-meta" id="r-meta" hidden>
+      <span>Procesamiento: <strong id="r-fecha"></strong></span>
+      <span>Bitácora: <code id="r-archivo"></code></span>
     </p>
   </section>
 
-  <section class="resumen" id="resumen">
-    <div><span class="etiqueta">Procesadas</span><strong id="r-total">0</strong></div>
-    <div><span class="etiqueta">Aceptadas</span><strong id="r-aceptadas">0</strong></div>
-    <div><span class="etiqueta">Con alerta</span><strong id="r-alerta">0</strong></div>
-    <div><span class="etiqueta">Rechazadas</span><strong id="r-rechazadas">0</strong></div>
+  <section class="ultimo" aria-labelledby="ultimo-titulo">
+    <h2 class="ultimo-titulo" id="ultimo-titulo">Último resultado</h2>
+    <div id="ultimo-cuerpo">
+      <p class="ultimo-vacio">Aún no hay resultado. Procesa una instrucción y aquí verás el estado, la clasificación y la recomendación.</p>
+    </div>
   </section>
 
-  <section class="historial" id="historial">
-    <p class="vacio" id="historial-vacio">Aún no se ha procesado ninguna instrucción.</p>
+  <section class="bitacora" aria-labelledby="bitacora-titulo">
+    <h2 class="ultimo-titulo" id="bitacora-titulo">Bitácora de la sesión</h2>
+
+    <!-- Filtro solo de vista: oculta tarjetas, no cambia los contadores. -->
+    <div class="filtros" id="filtros" role="group" aria-label="Filtrar la bitácora por estado" hidden>
+      <button type="button" class="filtro" data-filtro="todas" aria-pressed="true">Todas</button>
+      <button type="button" class="filtro" data-filtro="aceptado" aria-pressed="false">Aceptadas</button>
+      <button type="button" class="filtro" data-filtro="alerta" aria-pressed="false">Alertas</button>
+      <button type="button" class="filtro" data-filtro="advertencia" aria-pressed="false">Advertencias</button>
+      <button type="button" class="filtro" data-filtro="rechazado" aria-pressed="false">Rechazadas</button>
+    </div>
+    <p class="filtro-info" id="filtro-info" aria-live="polite"></p>
+
+    <div class="historial" id="historial">
+      <div class="vacio vacio-bitacora" id="historial-vacio">
+        <p>Aquí quedará cada instrucción que proceses en esta sesión, la más reciente arriba.</p>
+        <p>Empieza registrando un paciente y después captura su primera lectura.</p>
+        <button type="button" class="vacio-accion" id="vacio-accion">Registrar un paciente</button>
+      </div>
+      <p class="vacio" id="filtro-vacio" hidden>Ninguna instrucción de esta sesión tiene ese estado.</p>
+    </div>
   </section>
 </main>
+
+<footer class="pie">
+  <p><span>Resultados de carácter orientativo, no es diagnóstico médico.</span> <span class="pie-sep" aria-hidden="true">·</span> <a href="about.html">Acerca de</a></p>
+</footer>
 
 <script src="app.js"></script>
 </body>

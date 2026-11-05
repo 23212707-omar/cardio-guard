@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acerca de · Cardio Guard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="salto" href="#contenido">Saltar al contenido</a>
+
+<header class="cabecera">
+  <h1>Cardio Guard</h1>
+  <p>Acerca del proyecto</p>
+  <nav class="cabecera-nav" aria-label="Principal">
+    <a href="index.html">Inicio</a>
+    <a href="about.html" aria-current="page">Acerca de</a>
+  </nav>
+</header>
+
+<main id="contenido">
+  <section class="acerca" aria-labelledby="ac-proyecto">
+    <h2 class="ultimo-titulo" id="ac-proyecto">El proyecto</h2>
+    <p><strong>Cardio Guard</strong> es un intérprete para validar, clasificar y comparar lecturas de presión arterial y frecuencia cardíaca, con una bitácora de auditoría de cada instrucción procesada.</p>
+  </section>
+
+  <section class="acerca" aria-labelledby="ac-equipo">
+    <h2 class="ultimo-titulo" id="ac-equipo">Equipo y materia</h2>
+    <dl class="acerca-datos">
+      <div><dt>Materia</dt><dd>Lenguajes y Autómatas II</dd></div>
+      <div><dt>Integrantes</dt><dd>González Cristóbal Omar, Garcia Luna Ricardo Daniel</dd></div>
+      <div><dt>Profesor</dt><dd>Luis Alfonso Gaxiola Vega</dd></div>
+    </dl>
+  </section>
+
+  <section class="acerca" aria-labelledby="ac-funciona">
+    <h2 class="ultimo-titulo" id="ac-funciona">Cómo funciona</h2>
+    <p>Cada instrucción pasa por cuatro etapas, en este orden:</p>
+    <ol class="acerca-etapas">
+      <li><strong>Análisis léxico:</strong> separa el texto en componentes (identificador, números, símbolos).</li>
+      <li><strong>Análisis sintáctico:</strong> comprueba que esos componentes tengan la estructura de una instrucción válida.</li>
+      <li><strong>Autómata finito determinista:</strong> recorre la lectura y la clasifica.</li>
+      <li><strong>Reglas semánticas:</strong> verifican que los valores tengan sentido y determinan el estado y la recomendación.</li>
+    </ol>
+  </section>
+
+  <p class="ayuda-nota">Los resultados son de carácter orientativo, no son un diagnóstico médico.</p>
+
+  <p class="acerca-volver"><a class="boton-enlace" href="index.html">← Volver a la pantalla principal</a></p>
+</main>
+
+<footer class="pie">
+  <p><span>Resultados de carácter orientativo, no es diagnóstico médico.</span> <span class="pie-sep" aria-hidden="true">·</span> <a href="index.html">Inicio</a></p>
+</footer>
+
+</body>
+</html>
