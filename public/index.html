@@ -117,6 +117,51 @@
     </form>
   </section>
 
+  <!-- Ayuda de formato: contenido estático, sin llamadas a la API. -->
+  <details class="ayuda" id="ayuda">
+    <summary>¿Cómo escribo una instrucción?</summary>
+    <div class="ayuda-cuerpo">
+      <h2 class="ayuda-titulo">Registrar un paciente</h2>
+      <p><code>REGISTRAR P001, 45, M, O+</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>ID</dt><dd>Identificador del paciente, por ejemplo <code>P001</code>.</dd></div>
+        <div><dt>Edad</dt><dd>Edad en años, por ejemplo <code>45</code>.</dd></div>
+        <div><dt>Sexo</dt><dd>Valores válidos: <code>M</code> o <code>F</code>.</dd></div>
+        <div><dt>Tipo de sangre</dt><dd>Valores válidos: <code>A+</code>, <code>A-</code>, <code>B+</code>, <code>B-</code>, <code>AB+</code>, <code>AB-</code>, <code>O+</code>, <code>O-</code>.</dd></div>
+      </dl>
+
+      <h2 class="ayuda-titulo">Registrar una lectura</h2>
+      <p><code>P001; 118/76, 75</code></p>
+      <dl class="ayuda-campos">
+        <div><dt>ID</dt><dd>El paciente al que pertenece la lectura, seguido de <code>;</code>.</dd></div>
+        <div><dt>Presión</dt><dd>Sistólica y diastólica en mmHg, separadas por <code>/</code> (<code>118/76</code>).</dd></div>
+        <div><dt>Frecuencia</dt><dd>Frecuencia cardíaca, después de una coma (<code>75</code>).</dd></div>
+      </dl>
+
+      <h2 class="ayuda-titulo">Qué significa cada estado</h2>
+      <ul class="ayuda-estados">
+        <li>
+          <span class="insignia insignia-aceptado"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z"/><path d="M7.5 12.5l3 3 6-6.5"/></svg><span>Aceptado</span></span>
+          <span>La instrucción es válida y quedó registrada.</span>
+        </li>
+        <li>
+          <span class="insignia insignia-alerta"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.2 2.5h7.6l5.7 5.7v7.6l-5.7 5.7H8.2l-5.7-5.7V8.2z"/><path d="M12 7v6"/><path d="M12 16.5v.5"/></svg><span>Alerta</span></span>
+          <span>Se detectó una crisis hipertensiva (alerta roja).</span>
+        </li>
+        <li>
+          <span class="insignia insignia-advertencia"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3L2.5 20h19z"/><path d="M12 10v4.5"/><path d="M12 17.2v.3"/></svg><span>Advertencia</span></span>
+          <span>Dato sospechoso: valor fuera del rango fisiológico habitual; verifica la captura. Hoy aparece junto con una alerta, porque esos valores también son una crisis: se muestra como «ALERTA · DATO SOSPECHOSO».</span>
+        </li>
+        <li>
+          <span class="insignia insignia-rechazado"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z"/><path d="M8.5 8.5l7 7"/><path d="M15.5 8.5l-7 7"/></svg><span>Rechazado</span></span>
+          <span>La instrucción tiene un error léxico, de sintaxis o semántico y no se procesó.</span>
+        </li>
+      </ul>
+
+      <p class="ayuda-nota">Los resultados son de carácter orientativo, no son un diagnóstico médico.</p>
+    </div>
+  </details>
+
   <!-- Contadores de la ejecución del servidor (vienen de la API; no se
        reinician al recargar la página). Con la API caída se quedan en cero. -->
   <section class="resumen" id="resumen" aria-label="Resumen de la ejecución">
