@@ -142,7 +142,8 @@ function leerBitacora(lineasBitacora) {
       salida.avisos.push(linea);
     } else if (/^Dato sospechoso/.test(linea)) {
       salida.sospechoso = linea;
-    } else if ((c = linea.match(/^Cambio vs\. (\S+?):.*\((.+)\)$/))) {
+    } else if ((c = linea.match(/^Cambio vs\. (\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?):.*\((.+)\)$/))) {
+      // La fecha puede traer hora (AAAA-MM-DD HH:MM) o ser solo la fecha (filas antiguas).
       salida.anterior = { fecha: c[1], valores: c[2].replace('->', '→') };
     } else if (/^Recomendación:/.test(linea)) {
       salida.recomendacion = linea.replace(/^Recomendación:\s*/, '');
@@ -159,6 +160,49 @@ function leerLectura(texto) {
   const m = texto.match(/^\s*P\d+\s*;\s*(\d+)\s*\/\s*(\d+)\s*,\s*(\d+)\s*$/);
   if (!m) return null;
   return { sistolica: Number(m[1]), diastolica: Number(m[2]), frecuencia: Number(m[3]) };
+}
+
+// Bloque monoespaciado del marcador "^" (errores léxicos y sintácticos): la
+// instrucción tal como llegó y debajo una línea que termina en el "^". Sin
+// trim() ni cambios de espacios, o el "^" se desalinea. El motivo NO va aquí:
+// se pone aparte, como texto normal (ver crearMotivoDiagnostico).
+function crearBloqueDiagnostico(diagnostico) {
+  const marcador = diagnostico.marcador;
+  const caret = marcador.indexOf('^');
+  // El relleno solo tiene espacios o tabs, así que el primer "^" es el del marcador.
+  const lineaCaret = caret >= 0 ? marcador.slice(0, caret + 1) : marcador;
+  const pre = el('pre', 'diagnostico');
+  pre.tabIndex = 0; // permite desplazarlo con teclado si la instrucción es larga
+  pre.setAttribute('role', 'region');
+  pre.setAttribute('aria-label', 'Instrucción con marcador de error');
+  pre.textContent = `${diagnostico.instruccion}\n${lineaCaret}`;
+  return pre;
+}
+
+// Motivo del error, como texto normal bajo el bloque. Si el resultado no trae
+// `detalle`, no hay nada que separar: el bloque ya se pintó con el marcador
+// completo (ver crearDiagnosticoCompleto).
+function crearMotivoDiagnostico(resultado) {
+  return resultado.detalle ? el('p', 'ultimo-motivo', `Motivo: ${resultado.detalle}`) : null;
+}
+
+// Bloque + motivo, compartido por el panel de último resultado y las tarjetas.
+function crearDiagnosticoCompleto(resultado) {
+  const d = resultado.diagnostico;
+  const nodos = [];
+  if (resultado.detalle) {
+    nodos.push(crearBloqueDiagnostico(d));
+    nodos.push(crearMotivoDiagnostico(resultado));
+  } else {
+    // Sin detalle: marcador completo (instrucción + línea del "^" con su texto).
+    const pre = el('pre', 'diagnostico');
+    pre.tabIndex = 0;
+    pre.setAttribute('role', 'region');
+    pre.setAttribute('aria-label', 'Instrucción con marcador de error');
+    pre.textContent = `${d.instruccion}\n${d.marcador}`;
+    nodos.push(pre);
+  }
+  return nodos;
 }
 
 function crearDato(etiqueta, valor, sub, ancho) {
@@ -224,14 +268,17 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
   panel.appendChild(cabecera);
 
   const cuerpo = el('div', 'ultimo-contenido');
-  cuerpo.appendChild(el('p', 'ultimo-instruccion', b.instruccion));
+  const conDiagnostico = resultado.estado === 'RECHAZADO' && resultado.diagnostico;
+  // Con diagnóstico, la instrucción se muestra dentro del bloque del "^".
+  if (!conDiagnostico) cuerpo.appendChild(el('p', 'ultimo-instruccion', b.instruccion));
 
   if (resultado.estado === 'RECHAZADO') {
-    cuerpo.appendChild(crearBloque(
-      'Motivo del rechazo',
+    const hijos = [
       el('p', 'ultimo-motivo-tipo', ETIQUETA_TIPO_ERROR[resultado.tipo] || 'Error'),
-      el('p', 'ultimo-motivo', resultado.mensaje || b.instruccion)
-    ));
+      el('p', 'ultimo-motivo', resultado.mensaje || b.instruccion),
+    ];
+    if (conDiagnostico) hijos.push(...crearDiagnosticoCompleto(resultado));
+    cuerpo.appendChild(crearBloque('Motivo del rechazo', ...hijos));
   } else if (resultado.instruccion === 'REGISTRO') {
     const datos = el('dl', 'ultimo-datos');
     datos.appendChild(crearDato('Edad', `${resultado.edad} años`));
@@ -360,7 +407,15 @@ function agregarTarjeta(resultado, lineasBitacora) {
     const plegable = el('details', 'tarjeta-detalles');
     if (tipo === 'alerta') plegable.open = true;
     plegable.appendChild(el('summary', null, `Detalles (${detalles.length})`));
-    for (const detalle of detalles) plegable.appendChild(el('p', 'detalle', detalle.trim()));
+    if (resultado.estado === 'RECHAZADO' && resultado.diagnostico) {
+      // Léxico/sintáctico: el mensaje general como texto y el "^" en bloque
+      // monoespaciado armado desde resultado.diagnostico (las líneas de la
+      // bitácora traen sangría y no deben recortarse ni reacomodarse).
+      plegable.appendChild(el('p', 'detalle', detalles[0].trim()));
+      for (const nodo of crearDiagnosticoCompleto(resultado)) plegable.appendChild(nodo);
+    } else {
+      for (const detalle of detalles) plegable.appendChild(el('p', 'detalle', detalle.trim()));
+    }
     tarjeta.appendChild(plegable);
   }
 

@@ -994,6 +994,34 @@ main {
   font-weight: 600;
 }
 
+/* Marcador "^" de errores léxicos y sintácticos. white-space: pre y sin ajuste
+   de línea: el "^" debe caer bajo el carácter exacto (el desborde se desplaza
+   dentro del bloque). Gris de rechazo; el rojo es solo para alerta. */
+.diagnostico {
+  margin: var(--esp-2) 0;
+  padding: var(--esp-2) var(--esp-3);
+  overflow-x: auto;
+  border: 1px solid var(--rech-borde);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+  font-family: var(--fuente-mono);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+  white-space: pre;
+  tab-size: 8;
+}
+
+.tarjeta .diagnostico { margin: var(--esp-1) 0 var(--esp-2); }
+
+.ultimo-bloque .ultimo-motivo + .diagnostico + .ultimo-motivo,
+.detalle + .diagnostico + .ultimo-motivo { margin-top: var(--esp-1); }
+
+.tarjeta .ultimo-motivo {
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
+}
+
 .ultimo-sospechoso {
   margin: 0 0 var(--esp-3);
   padding: var(--esp-2) var(--esp-3);
