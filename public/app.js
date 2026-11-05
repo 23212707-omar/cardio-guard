@@ -460,6 +460,7 @@ function activarPestana(nombre, enfocar) {
   }
   limpiarError();
   actualizarVistaPrevia();
+}
 
 // Estado vacío de la bitácora: atajo para empezar por registrar un paciente.
 const vacioAccion = document.getElementById('vacio-accion');
@@ -468,7 +469,6 @@ if (vacioAccion) {
     activarPestana('registro', false);
     document.getElementById('reg-id').focus();
   });
-}
 }
 
 function ponerCargando(cargando) {
