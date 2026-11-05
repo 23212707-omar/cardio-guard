@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<a class="salto" href="#contenido">Saltar al contenido</a>
+
 <header class="cabecera">
   <h1>Cardio Guard</h1>
   <p>Intérprete para el monitoreo de presión arterial y frecuencia cardíaca</p>
@@ -17,8 +19,9 @@
   </nav>
 </header>
 
-<main>
-  <section class="formulario" aria-label="Captura de instrucción">
+<main id="contenido">
+  <section class="formulario" aria-labelledby="captura-titulo">
+    <h2 class="solo-lector" id="captura-titulo">Captura de instrucción</h2>
     <div class="pestanas" role="tablist" aria-label="Tipo de captura">
       <button type="button" class="pestana" role="tab" id="tab-registro" aria-controls="panel-registro" aria-selected="true" tabindex="0" data-captura="registro">Registrar paciente</button>
       <button type="button" class="pestana" role="tab" id="tab-lectura" aria-controls="panel-lectura" aria-selected="false" tabindex="-1" data-captura="lectura">Registrar lectura</button>
@@ -168,7 +171,8 @@
 
   <!-- Contadores de la ejecución del servidor (vienen de la API; no se
        reinician al recargar la página). Con la API caída se quedan en cero. -->
-  <section class="resumen" id="resumen" aria-label="Resumen de la ejecución">
+  <section class="resumen" id="resumen" aria-labelledby="resumen-titulo">
+    <h2 class="solo-lector" id="resumen-titulo">Resumen de la ejecución</h2>
     <dl class="resumen-cifras">
       <div class="cifra cifra-total"><dt>Procesadas</dt><dd id="r-total">0</dd></div>
       <div class="cifra cifra-aceptado"><dt>Aceptadas</dt><dd id="r-aceptadas">0</dd></div>

@@ -145,9 +145,18 @@
 *::before,
 *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+/* scroll-padding-bottom: el pie queda pegado abajo y no debe tapar el
+   elemento que recibe el foco al navegar con Tab. */
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-bottom: 6rem;
+}
 
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   font-family: var(--fuente-texto);
   font-size: var(--texto-base);
@@ -206,17 +215,21 @@ header p {
 
 /* ---------- Estructura ---------- */
 main {
+  flex: 1 0 auto;
+  width: 100%;
   max-width: var(--ancho-contenido);
   margin: 0 auto;
-  /* espacio inferior para que el pie fijo no tape el contenido */
-  padding: var(--esp-5) var(--esp-4) calc(var(--esp-7) + var(--esp-6));
+  padding: var(--esp-5) var(--esp-4);
 }
 
-/* ---------- Pie fijo ---------- */
+/* ---------- Pie ----------
+   Va en el flujo (reserva su propio espacio, así nunca tapa contenido, ni con
+   zoom ni con texto grande) y se queda pegado al borde inferior mientras hay
+   scroll, para que la nota orientativa siga siempre a la vista. */
 .pie {
-  position: fixed;
-  inset: auto 0 0 0;
-  padding: var(--esp-3) var(--esp-4);
+  position: sticky;
+  bottom: 0;
+  padding: var(--esp-1) var(--esp-4);
   background: var(--panel);
   border-top: 1px solid var(--borde);
   color: var(--tinta);
@@ -224,7 +237,33 @@ main {
   font-size: var(--texto-sm);
 }
 
-.pie p { margin: 0; }
+.pie p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 var(--esp-2);
+  margin: 0;
+}
+
+/* Ventanas muy bajas (zoom alto, teléfono en horizontal): el pie pegado
+   ocuparía demasiado; pasa a ser un pie normal al final de la página. */
+@media (max-height: 30rem) {
+  .pie { position: static; }
+}
+
+/* Texto solo para lectores de pantalla (encabezados de región) */
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
 .formulario,
 .resumen {
@@ -583,7 +622,8 @@ main {
 
 .resumen-desglose + .resumen-meta { margin-top: var(--esp-2); }
 .resumen-meta { display: flex; flex-wrap: wrap; gap: var(--esp-1) var(--esp-4); }
-.resumen-meta code { font-family: var(--fuente-mono); }
+.resumen-meta code { font-family: var(--fuente-mono); overflow-wrap: anywhere; }
+.resumen-meta > span { min-width: 0; overflow-wrap: anywhere; }
 .resumen strong { font-weight: 600; }
 
 /* ---------- Bitácora ---------- */
@@ -702,8 +742,8 @@ main {
 
 .tarjeta-detalles summary {
   display: list-item;
-  min-height: 32px;
-  padding: var(--esp-1) 0;
+  min-height: 44px;
+  padding: var(--esp-2) 0;
   font-size: var(--texto-sm);
   font-weight: 600;
   cursor: pointer;
@@ -712,6 +752,7 @@ main {
 .tarjeta .detalle {
   margin: var(--esp-1) 0 0;
   font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
 }
 
 .tarjeta.aceptado {
@@ -930,6 +971,12 @@ main {
 
 .ultimo-bloque p { margin: 0; }
 
+/* Textos que vienen del servidor: pueden traer tokens largos sin espacios */
+.ultimo-aviso,
+.ultimo-sospechoso,
+.ultimo-bloque p,
+.ultimo-paciente { overflow-wrap: anywhere; }
+
 .ultimo-comparacion-detalle {
   display: block;
   font-size: var(--texto-sm);
@@ -981,6 +1028,11 @@ main {
 @media (max-width: 30rem) {
   .boton-enviar { width: 100%; }
   .resumen-cifras { grid-template-columns: repeat(2, 1fr); }
+  main { padding-inline: var(--esp-3); }
+  .formulario { padding: var(--esp-3); }
+  .pestana { padding-inline: var(--esp-3); }
+  .ultimo-alerta .insignia { font-size: var(--texto-xl); }
+  .ultimo-alerta .insignia-icono { width: 1.75rem; height: 1.75rem; }
 }
 
 /* ---------- Movimiento reducido ---------- */
@@ -1002,9 +1054,18 @@ main {
   margin-top: var(--esp-3);
 }
 
+.cabecera-nav {
+  flex-wrap: wrap;
+}
+
 .cabecera-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
   color: var(--marca-texto);
-  padding: var(--esp-1) var(--esp-2);
+  padding: var(--esp-1) var(--esp-3);
   border-radius: var(--radio-sm);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1019,12 +1080,22 @@ main {
 .cabecera-nav a:focus-visible,
 .salto:focus-visible { outline-color: var(--marca-texto); }
 
-.pie a { color: var(--marca); text-underline-offset: 3px; }
+.pie a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--esp-2);
+  color: var(--marca);
+  text-underline-offset: 3px;
+}
 
 .salto {
   position: absolute;
   left: var(--esp-2);
   top: -4rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: var(--esp-2) var(--esp-3);
   background: var(--marca);
   color: var(--marca-texto);
@@ -1053,7 +1124,9 @@ main {
 
 .acerca-volver { margin: var(--esp-5) 0 0; }
 .boton-enlace {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: var(--esp-2) var(--esp-4);
   background: var(--marca);
   color: var(--marca-texto);
