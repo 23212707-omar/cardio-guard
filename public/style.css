@@ -494,25 +494,120 @@ main {
   gap: var(--esp-3);
 }
 
+.bitacora { margin-bottom: var(--esp-5); }
+
 .vacio {
   margin: var(--esp-5) 0;
   text-align: center;
   color: var(--tinta-suave);
 }
 
+/* Estado vacío útil: explica qué aparecerá y cómo empezar */
+.vacio-bitacora {
+  margin: 0;
+  padding: var(--esp-5) var(--esp-4);
+  border: 1px dashed var(--borde-campo);
+  border-radius: var(--radio-md);
+  background: var(--panel);
+}
+
+.vacio-bitacora p { margin: 0 0 var(--esp-2); }
+
+.vacio-accion {
+  min-height: 44px;
+  margin-top: var(--esp-2);
+  padding: var(--esp-2) var(--esp-5);
+  border: 1px solid var(--marca);
+  border-radius: var(--radio-sm);
+  background: var(--panel);
+  color: var(--tinta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vacio-accion:hover { background: var(--seleccion); }
+
+/* Filtro por estado (solo vista) */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-2);
+}
+
+.filtro {
+  min-height: 44px;
+  padding: var(--esp-1) var(--esp-4);
+  border: 1px solid var(--borde-campo);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.filtro:hover { background: var(--seleccion); }
+
+/* Activo: relleno de marca (no usa los colores de estado) */
+.filtro[aria-pressed="true"] {
+  border-color: var(--marca);
+  background: var(--marca);
+  color: var(--marca-texto);
+  font-weight: 600;
+}
+
+.filtro-info {
+  margin: 0 0 var(--esp-2);
+  font-size: var(--texto-sm);
+  color: var(--tinta-suave);
+}
+
+.filtro-info:empty { margin: 0; }
+
 .tarjeta {
-  padding: var(--esp-3) var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
   border: 1px solid var(--rech-borde);
   border-radius: var(--radio-md);
   background: var(--rech-fondo);
   color: var(--rech-texto);
 }
 
+.tarjeta-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-1) var(--esp-3);
+}
+
+.tarjeta-cabecera .insignia { margin-bottom: 0; }
+
+.tarjeta-id {
+  font-family: var(--fuente-mono);
+  font-weight: 600;
+}
+
+.tarjeta-linea {
+  margin-left: auto;
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .tarjeta .encabezado {
-  margin: 0 0 var(--esp-1);
+  margin: var(--esp-1) 0 0;
   font-weight: 400;
   font-size: var(--texto-sm);
   overflow-wrap: anywhere;
+}
+
+/* Detalles plegables: el marcador del <summary> indica que se despliega */
+.tarjeta-detalles { margin-top: var(--esp-1); }
+
+.tarjeta-detalles summary {
+  display: list-item;
+  min-height: 32px;
+  padding: var(--esp-1) 0;
+  font-size: var(--texto-sm);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .tarjeta .detalle {

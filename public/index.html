@@ -131,8 +131,27 @@
     </div>
   </section>
 
-  <section class="historial" id="historial" aria-label="Bitácora de resultados">
-    <p class="vacio" id="historial-vacio">Aún no se ha procesado ninguna instrucción.</p>
+  <section class="bitacora" aria-labelledby="bitacora-titulo">
+    <h2 class="ultimo-titulo" id="bitacora-titulo">Bitácora de la sesión</h2>
+
+    <!-- Filtro solo de vista: oculta tarjetas, no cambia los contadores. -->
+    <div class="filtros" id="filtros" role="group" aria-label="Filtrar la bitácora por estado" hidden>
+      <button type="button" class="filtro" data-filtro="todas" aria-pressed="true">Todas</button>
+      <button type="button" class="filtro" data-filtro="aceptado" aria-pressed="false">Aceptadas</button>
+      <button type="button" class="filtro" data-filtro="alerta" aria-pressed="false">Alertas</button>
+      <button type="button" class="filtro" data-filtro="advertencia" aria-pressed="false">Advertencias</button>
+      <button type="button" class="filtro" data-filtro="rechazado" aria-pressed="false">Rechazadas</button>
+    </div>
+    <p class="filtro-info" id="filtro-info" aria-live="polite"></p>
+
+    <div class="historial" id="historial">
+      <div class="vacio vacio-bitacora" id="historial-vacio">
+        <p>Aquí quedará cada instrucción que proceses en esta sesión, la más reciente arriba.</p>
+        <p>Empieza registrando un paciente y después captura su primera lectura.</p>
+        <button type="button" class="vacio-accion" id="vacio-accion">Registrar un paciente</button>
+      </div>
+      <p class="vacio" id="filtro-vacio" hidden>Ninguna instrucción de esta sesión tiene ese estado.</p>
+    </div>
   </section>
 </main>
 

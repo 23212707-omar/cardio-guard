@@ -120,20 +120,15 @@ function el(etiqueta, clase, texto) {
   return nodo;
 }
 
-// Extrae de las líneas de bitácora lo que `resultado` no trae como campo.
+// Extrae de las líneas de bitácora lo que `resultado` no trae como campo
+// (el id del paciente NO se lee de aquí: viene en resultado.id).
 function leerBitacora(lineasBitacora) {
   const [encabezado = '', ...detalles] = lineasBitacora;
   const m = encabezado.match(/^\[LÍNEA\s+\d+\]\s+(.*?)\s+->\s+ESTADO:/);
   const instruccion = m ? m[1] : encabezado;
 
-  // Lecturas: "P001 | 118/76, 75" (solo para el id del paciente)
-  const lectura = instruccion.match(/^(\S+)\s+\|\s+\d+\/\d+,\s*\d+$/);
-  // Registros: "REGISTRAR P001"
-  const registro = instruccion.match(/^REGISTRAR\s+(\S+)$/);
-
   const salida = {
     instruccion,
-    id: lectura ? lectura[1] : registro ? registro[1] : null,
     avisos: [],          // ¡ALERTA ROJA! y protocolo
     sospechoso: null,
     anterior: null,      // { fecha, valores }
@@ -209,7 +204,7 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
   const tipo = info ? info.tipo : 'neutro';
   const esAlerta = tipo === 'alerta';
   const b = leerBitacora(lineasBitacora);
-  const id = resultado.id || b.id;
+  const id = resultado.id; // los rechazos no traen id: no se infiere del texto
 
   const panel = el('article', `ultimo-resultado ultimo-${tipo}`);
   // role="alert" solo para la alerta; el resto se anuncia en cortés.
@@ -273,34 +268,76 @@ function actualizarResumen(contadores) {
   document.getElementById('r-rechazadas').textContent = contadores.rechazadas;
 }
 
-function agregarTarjeta(lineasBitacora, estado) {
+// ---------- Bitácora de la sesión ----------
+// Tarjeta compacta: insignia, paciente (resultado.id), línea e instrucción; los
+// detalles van plegados (abiertos en la alerta, que no debe quedar escondida).
+// El filtro solo oculta tarjetas en el cliente: no toca los contadores, que
+// vienen de la API.
+
+const filtros = document.getElementById('filtros');
+const filtroInfo = document.getElementById('filtro-info');
+const filtroVacio = document.getElementById('filtro-vacio');
+let filtroActivo = 'todas';
+
+function aplicarFiltro() {
+  let total = 0;
+  let visibles = 0;
+  historial.querySelectorAll('.tarjeta').forEach((tarjeta) => {
+    const ver = filtroActivo === 'todas' || tarjeta.dataset.estado === filtroActivo;
+    tarjeta.hidden = !ver;
+    total += 1;
+    if (ver) visibles += 1;
+  });
+  filtroVacio.hidden = !(total > 0 && visibles === 0);
+  filtroInfo.textContent = filtroActivo === 'todas' || total === 0
+    ? ''
+    : `Mostrando ${visibles} de ${total} en esta sesión.`;
+}
+
+function agregarTarjeta(resultado, lineasBitacora) {
   if (historialVacio) historialVacio.remove();
+  filtros.hidden = false;
 
-  const tarjeta = document.createElement('div');
-  tarjeta.className = claseParaEstado(estado);
+  const info = infoInsignia(resultado.estado);
+  const tipo = info ? info.tipo : 'otro';
+  const [encabezado, ...detalles] = lineasBitacora;
 
-  const insignia = crearInsignia(estado);
-  if (insignia) tarjeta.appendChild(insignia);
+  const tarjeta = el('article', claseParaEstado(resultado.estado));
+  tarjeta.dataset.estado = tipo;
   // El anuncio a lectores de pantalla (role="alert") lo hace el panel de
   // último resultado; aquí no se repite para no anunciar la alerta dos veces.
 
-  const [encabezado, ...detalles] = lineasBitacora;
+  const cabecera = el('div', 'tarjeta-cabecera');
+  const insignia = crearInsignia(resultado.estado);
+  if (insignia) cabecera.appendChild(insignia);
+  if (resultado.id) cabecera.appendChild(el('span', 'tarjeta-id', resultado.id));
+  if (resultado.linea) {
+    cabecera.appendChild(el('span', 'tarjeta-linea', `Línea ${String(resultado.linea).padStart(2, '0')}`));
+  }
+  tarjeta.appendChild(cabecera);
 
-  const pEncabezado = document.createElement('p');
-  pEncabezado.className = 'encabezado';
-  pEncabezado.textContent = encabezado;
-  tarjeta.appendChild(pEncabezado);
+  tarjeta.appendChild(el('p', 'encabezado', leerBitacora(lineasBitacora).instruccion));
 
-  for (const detalle of detalles) {
-    const pDetalle = document.createElement('p');
-    pDetalle.className = 'detalle';
-    pDetalle.textContent = detalle.trim();
-    tarjeta.appendChild(pDetalle);
+  if (detalles.length > 0) {
+    const plegable = el('details', 'tarjeta-detalles');
+    if (tipo === 'alerta') plegable.open = true;
+    plegable.appendChild(el('summary', null, `Detalles (${detalles.length})`));
+    for (const detalle of detalles) plegable.appendChild(el('p', 'detalle', detalle.trim()));
+    tarjeta.appendChild(plegable);
   }
 
   // Lo más reciente arriba, para no tener que ir bajando con cada envío.
   historial.prepend(tarjeta);
+  aplicarFiltro(); // respeta el filtro que esté activo
 }
+
+filtros.addEventListener('click', (evento) => {
+  const boton = evento.target.closest('.filtro');
+  if (!boton) return;
+  filtroActivo = boton.dataset.filtro;
+  filtros.querySelectorAll('.filtro').forEach((b) => b.setAttribute('aria-pressed', String(b === boton)));
+  aplicarFiltro();
+});
 
 // ---------- Captura por campos ----------
 // Los campos NO validan reglas clínicas ni de formato: solo arman el texto de
@@ -388,6 +425,15 @@ function activarPestana(nombre, enfocar) {
   }
   limpiarError();
   actualizarVistaPrevia();
+
+// Estado vacío de la bitácora: atajo para empezar por registrar un paciente.
+const vacioAccion = document.getElementById('vacio-accion');
+if (vacioAccion) {
+  vacioAccion.addEventListener('click', () => {
+    activarPestana('registro', false);
+    document.getElementById('reg-id').focus();
+  });
+}
 }
 
 function ponerCargando(cargando) {
@@ -420,7 +466,7 @@ async function enviarTexto(texto, captura) {
     const datos = await respuesta.json();
     // Primero el panel: la alerta roja no espera a nada más.
     mostrarUltimo(datos.resultado, datos.lineasBitacora, texto);
-    agregarTarjeta(datos.lineasBitacora, datos.resultado.estado);
+    agregarTarjeta(datos.resultado, datos.lineasBitacora);
     actualizarResumen(datos.contadores);
     if (datos.resultado.estado !== 'RECHAZADO') recordarPaciente(datos.resultado.id);
     limpiarTrasEnvio(captura, datos.resultado.estado);
