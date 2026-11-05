@@ -66,24 +66,28 @@ function infoInsignia(estado) {
   }
 }
 
+// Icono SVG decorativo (aria-hidden): el significado siempre va en el texto.
+function crearIcono(tipo, clase) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', clase);
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (const d of ICONOS[tipo]) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
 function crearInsignia(estado) {
   const info = infoInsignia(estado);
   if (!info) return null;
 
   const insignia = document.createElement('span');
   insignia.className = 'insignia insignia-' + info.tipo;
-
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('class', 'insignia-icono');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('focusable', 'false');
-  for (const d of ICONOS[info.tipo]) {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    svg.appendChild(path);
-  }
-  insignia.appendChild(svg);
+  insignia.appendChild(crearIcono(info.tipo, 'insignia-icono'));
 
   const etiqueta = document.createElement('span');
   etiqueta.textContent = info.extra ? `${info.texto} · ${info.extra}` : info.texto;
@@ -245,6 +249,140 @@ function crearComparacion(comparacion, b) {
   return p;
 }
 
+// ---------- CONSULTAR y LISTAR ----------
+// Etiquetas clínicas: salen de paciente.clasificacion (crisis / datoSospechoso),
+// no del estado de la instrucción, que sigue siendo ACEPTADO (verde). Icono +
+// texto, nunca solo color. Cada una describe la última revisión del paciente.
+const ETIQUETAS_CLINICAS = {
+  crisis: { icono: 'alerta', texto: 'CRISIS HIPERTENSIVA' },
+  sospechoso: { icono: 'advertencia', texto: 'DATO SOSPECHOSO' },
+};
+
+function crearEtiquetaClinica(tipo) {
+  const info = ETIQUETAS_CLINICAS[tipo];
+  const etiqueta = el('span', `etiqueta-clinica etiqueta-${tipo}`);
+  etiqueta.appendChild(crearIcono(info.icono, 'etiqueta-icono'));
+  etiqueta.appendChild(el('span', null, info.texto));
+  return etiqueta;
+}
+
+// Contenedor con 0–2 etiquetas (pueden coexistir); null si no hay ninguna.
+function crearEtiquetasPaciente(paciente) {
+  const c = paciente.clasificacion;
+  if (!c || (!c.crisis && !c.datoSospechoso)) return null;
+  const caja = el('div', 'etiquetas-clinicas');
+  if (c.crisis) caja.appendChild(crearEtiquetaClinica('crisis'));
+  if (c.datoSospechoso) caja.appendChild(crearEtiquetaClinica('sospechoso'));
+  return caja;
+}
+
+function crearFichaPaciente(paciente) {
+  const nodos = [];
+  const etiquetas = crearEtiquetasPaciente(paciente);
+  if (etiquetas) nodos.push(etiquetas);
+
+  const datos = el('dl', 'ultimo-datos');
+  datos.appendChild(crearDato('Edad', `${paciente.edad} años`));
+  datos.appendChild(crearDato('Sexo', paciente.sexo));
+  datos.appendChild(crearDato('Sangre', paciente.sangre));
+
+  const rev = paciente.ultimaRevision;
+  const c = paciente.clasificacion;
+  if (rev && c) {
+    datos.appendChild(crearDato('Presión', `${rev.sistolica}/${rev.diastolica}`, 'mmHg'));
+    datos.appendChild(crearDato('Frecuencia', rev.frecuencia, `lpm · ${c.frecuencia.nombre}`));
+    datos.appendChild(crearDato('Clasificación', c.presion.nombre, null, true));
+  }
+  nodos.push(datos);
+
+  if (rev && c) {
+    const p = el('p', 'ultimo-comparacion');
+    p.appendChild(document.createTextNode('Última revisión: '));
+    p.appendChild(el('span', 'fecha', rev.fecha));
+    p.appendChild(document.createTextNode('. Solo se conserva la última revisión.'));
+    nodos.push(crearBloque('Revisión', p));
+  } else {
+    nodos.push(el('p', 'ultimo-nota', 'Sin revisiones registradas todavía.'));
+  }
+  nodos.push(el('p', 'nota-orientativa', 'Carácter orientativo, no es diagnóstico médico.'));
+  return nodos;
+}
+
+function irARegistrar() {
+  activarPestana('registro', false);
+  document.getElementById('reg-id').focus();
+}
+
+function crearTablaListado(resultado) {
+  const pacientes = Array.isArray(resultado.pacientes) ? resultado.pacientes : [];
+  if (pacientes.length === 0) {
+    const vacio = el('div', 'listado-vacio');
+    vacio.appendChild(el('p', null, 'No hay pacientes registrados.'));
+    vacio.appendChild(el('p', null, 'Registra uno y después captura su primera lectura.'));
+    const boton = el('button', 'vacio-accion', 'Registrar un paciente');
+    boton.type = 'button';
+    boton.addEventListener('click', irARegistrar);
+    vacio.appendChild(boton);
+    return [vacio];
+  }
+
+  const total = Number.isFinite(resultado.total) ? resultado.total : pacientes.length;
+  const tabla = el('table', 'tabla-pacientes');
+  tabla.appendChild(el('caption', 'solo-lector', `${total} paciente(s) registrado(s)`));
+  const encabezados = ['ID', 'Edad', 'Sexo', 'Sangre', 'Última revisión', 'Clasificación'];
+  const thead = el('thead');
+  const filaTh = el('tr');
+  thead.appendChild(filaTh);
+  for (const t of encabezados) {
+    const th = el('th', null, t);
+    th.scope = 'col';
+    filaTh.appendChild(th);
+  }
+  tabla.appendChild(thead);
+
+  const tbody = el('tbody');
+  for (const p of pacientes) {
+    const fila = el('tr');
+    const id = el('th', 'col-id', p.id);
+    id.scope = 'row';
+    fila.appendChild(id);
+    fila.appendChild(el('td', 'col-num', p.edad));
+    fila.appendChild(el('td', null, p.sexo));
+    fila.appendChild(el('td', null, p.sangre));
+
+    const rev = p.ultimaRevision;
+    const c = p.clasificacion;
+    const celdaRev = el('td', 'col-rev');
+    const celdaClas = el('td', 'col-clas');
+    if (rev && c) {
+      celdaRev.appendChild(el('span', 'rev-valores', `${rev.sistolica}/${rev.diastolica} mmHg · ${rev.frecuencia} lpm`));
+      celdaRev.appendChild(el('span', 'fecha rev-fecha', rev.fecha));
+      celdaClas.appendChild(el('span', 'clas-linea', c.presion.nombre));
+      celdaClas.appendChild(el('span', 'clas-linea clas-fc', `FC: ${c.frecuencia.nombre}`));
+      const etiquetas = crearEtiquetasPaciente(p);
+      if (etiquetas) celdaClas.appendChild(etiquetas);
+    } else {
+      celdaRev.appendChild(el('span', 'sin-revision', 'Sin revisiones'));
+      celdaClas.appendChild(el('span', 'sin-revision', '—'));
+    }
+    fila.appendChild(celdaRev);
+    fila.appendChild(celdaClas);
+    tbody.appendChild(fila);
+  }
+  tabla.appendChild(tbody);
+
+  const scroll = el('div', 'tabla-scroll');
+  scroll.tabIndex = 0; // permite desplazar la tabla con teclado
+  scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', 'Tabla de pacientes registrados');
+  scroll.appendChild(tabla);
+  return [
+    el('p', 'ultimo-nota', `${total} paciente(s) registrado(s).`),
+    scroll,
+    el('p', 'nota-orientativa', 'Carácter orientativo, no es diagnóstico médico.'),
+  ];
+}
+
 // La alerta roja se pinta de forma síncrona y sin la clase de entrada animada.
 function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
   const info = infoInsignia(resultado.estado);
@@ -286,6 +424,10 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
     datos.appendChild(crearDato('Sangre', resultado.sangre));
     cuerpo.appendChild(el('p', 'ultimo-nota', 'Paciente registrado. Aún no tiene revisiones.'));
     cuerpo.appendChild(datos);
+  } else if (resultado.instruccion === 'CONSULTA' && resultado.paciente) {
+    for (const nodo of crearFichaPaciente(resultado.paciente)) cuerpo.appendChild(nodo);
+  } else if (resultado.instruccion === 'LISTADO') {
+    for (const nodo of crearTablaListado(resultado)) cuerpo.appendChild(nodo);
   } else {
     for (const aviso of b.avisos) cuerpo.appendChild(el('p', 'ultimo-aviso', aviso));
     if (b.sospechoso) cuerpo.appendChild(el('p', 'ultimo-sospechoso', b.sospechoso));
@@ -402,6 +544,12 @@ function agregarTarjeta(resultado, lineasBitacora) {
   tarjeta.appendChild(cabecera);
 
   tarjeta.appendChild(el('p', 'encabezado', leerBitacora(lineasBitacora).instruccion));
+
+  // CONSULTAR: las etiquetas clínicas también van visibles en la tarjeta.
+  if (resultado.instruccion === 'CONSULTA' && resultado.paciente) {
+    const etiquetas = crearEtiquetasPaciente(resultado.paciente);
+    if (etiquetas) tarjeta.appendChild(etiquetas);
+  }
 
   if (detalles.length > 0) {
     const plegable = el('details', 'tarjeta-detalles');
@@ -523,10 +671,7 @@ function activarPestana(nombre, enfocar) {
 // Estado vacío de la bitácora: atajo para empezar por registrar un paciente.
 const vacioAccion = document.getElementById('vacio-accion');
 if (vacioAccion) {
-  vacioAccion.addEventListener('click', () => {
-    activarPestana('registro', false);
-    document.getElementById('reg-id').focus();
-  });
+  vacioAccion.addEventListener('click', irARegistrar);
 }
 
 function ponerCargando(cargando) {
