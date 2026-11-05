@@ -92,6 +92,180 @@ function crearInsignia(estado) {
   return insignia;
 }
 
+// ---------- Panel de último resultado ----------
+// Se arma solo con lo que la API ya devuelve. La recomendación y la fecha de
+// la revisión anterior no vienen como campos de `resultado`: se leen de
+// lineasBitacora (formato fijo, ver src/interpreter.js). La presión y la
+// frecuencia se toman del texto que envió el usuario (ver leerLectura).
+
+const panelUltimo = document.getElementById('ultimo-cuerpo');
+
+const ETIQUETA_TIPO_ERROR = {
+  LEXICO: 'Error léxico',
+  SINTACTICO: 'Error de sintaxis',
+  SEMANTICO: 'Error semántico',
+};
+const TEXTO_COMPARACION = {
+  PRIMERA_REVISION: 'Primera revisión',
+  POSITIVO: 'Mejoró',
+  NEGATIVO: 'Empeoró',
+  SIN_CAMBIO: 'Sin cambio',
+};
+const TEXTO_CAMBIO = { MEJORO: 'mejoró', EMPEORO: 'empeoró', SIN_CAMBIO: 'sin cambio' };
+
+function el(etiqueta, clase, texto) {
+  const nodo = document.createElement(etiqueta);
+  if (clase) nodo.className = clase;
+  if (texto !== undefined) nodo.textContent = texto;
+  return nodo;
+}
+
+// Extrae de las líneas de bitácora lo que `resultado` no trae como campo.
+function leerBitacora(lineasBitacora) {
+  const [encabezado = '', ...detalles] = lineasBitacora;
+  const m = encabezado.match(/^\[LÍNEA\s+\d+\]\s+(.*?)\s+->\s+ESTADO:/);
+  const instruccion = m ? m[1] : encabezado;
+
+  // Lecturas: "P001 | 118/76, 75" (solo para el id del paciente)
+  const lectura = instruccion.match(/^(\S+)\s+\|\s+\d+\/\d+,\s*\d+$/);
+  // Registros: "REGISTRAR P001"
+  const registro = instruccion.match(/^REGISTRAR\s+(\S+)$/);
+
+  const salida = {
+    instruccion,
+    id: lectura ? lectura[1] : registro ? registro[1] : null,
+    avisos: [],          // ¡ALERTA ROJA! y protocolo
+    sospechoso: null,
+    anterior: null,      // { fecha, valores }
+    recomendacion: null,
+  };
+
+  for (const crudo of detalles) {
+    const linea = crudo.trim();
+    let c;
+    if (/^¡ALERTA ROJA!|^Disparar protocolo/.test(linea)) {
+      salida.avisos.push(linea);
+    } else if (/^Dato sospechoso/.test(linea)) {
+      salida.sospechoso = linea;
+    } else if ((c = linea.match(/^Cambio vs\. (\S+?):.*\((.+)\)$/))) {
+      salida.anterior = { fecha: c[1], valores: c[2].replace('->', '→') };
+    } else if (/^Recomendación:/.test(linea)) {
+      salida.recomendacion = linea.replace(/^Recomendación:\s*/, '');
+    }
+  }
+  return salida;
+}
+
+// Presión y frecuencia, tomadas del texto enviado. La sintaxis la fija la
+// gramática (LEC -> id ; num / num , num). Solo se llama con una lectura
+// aceptada, así que el texto ya pasó el léxico y el parser; si aun así no
+// coincide, devuelve null y el panel omite esos datos.
+function leerLectura(texto) {
+  const m = texto.match(/^\s*P\d+\s*;\s*(\d+)\s*\/\s*(\d+)\s*,\s*(\d+)\s*$/);
+  if (!m) return null;
+  return { sistolica: Number(m[1]), diastolica: Number(m[2]), frecuencia: Number(m[3]) };
+}
+
+function crearDato(etiqueta, valor, sub) {
+  const caja = el('div', 'dato');
+  caja.appendChild(el('dt', 'dato-etiqueta', etiqueta));
+  caja.appendChild(el('dd', 'dato-valor', valor));
+  if (sub) caja.appendChild(el('dd', 'dato-sub', sub));
+  return caja;
+}
+
+function crearBloque(titulo, ...hijos) {
+  const bloque = el('div', 'ultimo-bloque');
+  bloque.appendChild(el('h3', 'ultimo-bloque-titulo', titulo));
+  for (const h of hijos) bloque.appendChild(h);
+  return bloque;
+}
+
+function crearComparacion(comparacion, b) {
+  const p = el('p', 'ultimo-comparacion');
+  const titular = el('strong', null, TEXTO_COMPARACION[comparacion.resultado] || comparacion.resultado);
+  p.appendChild(titular);
+
+  if (comparacion.resultado === 'PRIMERA_REVISION') {
+    p.appendChild(document.createTextNode(': sin datos previos para comparar.'));
+    return p;
+  }
+  if (b.anterior) {
+    p.appendChild(document.createTextNode(` respecto a la revisión del ${b.anterior.fecha} (${b.anterior.valores}).`));
+  }
+  if (comparacion.presion && comparacion.frecuencia) {
+    const detalle = el(
+      'span', 'ultimo-comparacion-detalle',
+      `Presión: ${TEXTO_CAMBIO[comparacion.presion.cambio]} · Frecuencia: ${TEXTO_CAMBIO[comparacion.frecuencia.cambio]}`
+    );
+    p.appendChild(detalle);
+  }
+  return p;
+}
+
+// La alerta roja se pinta de forma síncrona y sin la clase de entrada animada.
+function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
+  const info = infoInsignia(resultado.estado);
+  const tipo = info ? info.tipo : 'neutro';
+  const esAlerta = tipo === 'alerta';
+  const b = leerBitacora(lineasBitacora);
+  const id = resultado.id || b.id;
+
+  const panel = el('article', `ultimo-resultado ultimo-${tipo}`);
+  // role="alert" solo para la alerta; el resto se anuncia en cortés.
+  if (esAlerta) panel.setAttribute('role', 'alert');
+  else panel.setAttribute('aria-live', 'polite');
+  if (!esAlerta) panel.classList.add('entra'); // 150 ms; anulada con prefers-reduced-motion
+
+  // Cabecera: insignia + paciente + línea
+  const cabecera = el('div', 'ultimo-cabecera');
+  const insignia = crearInsignia(resultado.estado);
+  if (insignia) cabecera.appendChild(insignia);
+  if (id) cabecera.appendChild(el('p', 'ultimo-paciente', `Paciente ${id}`));
+  if (resultado.linea) cabecera.appendChild(el('p', 'ultimo-linea', `Línea ${resultado.linea}`));
+  panel.appendChild(cabecera);
+
+  const cuerpo = el('div', 'ultimo-contenido');
+  cuerpo.appendChild(el('p', 'ultimo-instruccion', b.instruccion));
+
+  if (resultado.estado === 'RECHAZADO') {
+    cuerpo.appendChild(crearBloque(
+      'Motivo del rechazo',
+      el('p', 'ultimo-motivo-tipo', ETIQUETA_TIPO_ERROR[resultado.tipo] || 'Error'),
+      el('p', 'ultimo-motivo', resultado.mensaje || b.instruccion)
+    ));
+  } else if (resultado.instruccion === 'REGISTRO') {
+    const datos = el('dl', 'ultimo-datos');
+    datos.appendChild(crearDato('Edad', `${resultado.edad} años`));
+    datos.appendChild(crearDato('Sexo', resultado.sexo));
+    datos.appendChild(crearDato('Sangre', resultado.sangre));
+    cuerpo.appendChild(el('p', 'ultimo-nota', 'Paciente registrado. Aún no tiene revisiones.'));
+    cuerpo.appendChild(datos);
+  } else {
+    for (const aviso of b.avisos) cuerpo.appendChild(el('p', 'ultimo-aviso', aviso));
+    if (b.sospechoso) cuerpo.appendChild(el('p', 'ultimo-sospechoso', b.sospechoso));
+
+    const comp = resultado.comparacion;
+    const lec = resultado.instruccion === 'LECTURA' ? leerLectura(textoEnviado) : null;
+    const datos = el('dl', 'ultimo-datos');
+    if (lec) datos.appendChild(crearDato('Presión', `${lec.sistolica}/${lec.diastolica}`, 'mmHg'));
+    if (lec) {
+      const cat = comp && comp.frecuencia ? comp.frecuencia.actual.nombre : '';
+      datos.appendChild(crearDato('Frecuencia', lec.frecuencia, cat ? `lpm · ${cat}` : 'lpm'));
+    }
+    if (resultado.clasificacionPresion) {
+      datos.appendChild(crearDato('Clasificación', resultado.clasificacionPresion.nombre));
+    }
+    cuerpo.appendChild(datos);
+
+    if (comp) cuerpo.appendChild(crearBloque('Comparación con la última revisión', crearComparacion(comp, b)));
+    if (b.recomendacion) cuerpo.appendChild(crearBloque('Recomendación', el('p', 'ultimo-recomendacion', b.recomendacion)));
+  }
+
+  panel.appendChild(cuerpo);
+  panelUltimo.replaceChildren(panel);
+}
+
 function actualizarResumen(contadores) {
   document.getElementById('r-total').textContent = contadores.total;
   document.getElementById('r-aceptadas').textContent = contadores.aceptadas;
@@ -107,8 +281,8 @@ function agregarTarjeta(lineasBitacora, estado) {
 
   const insignia = crearInsignia(estado);
   if (insignia) tarjeta.appendChild(insignia);
-  // La alerta se anuncia de inmediato a lectores de pantalla.
-  if (tarjeta.className === 'tarjeta alerta') tarjeta.setAttribute('role', 'alert');
+  // El anuncio a lectores de pantalla (role="alert") lo hace el panel de
+  // último resultado; aquí no se repite para no anunciar la alerta dos veces.
 
   const [encabezado, ...detalles] = lineasBitacora;
 
@@ -177,6 +351,8 @@ async function enviarInstruccion() {
     }
 
     const datos = await respuesta.json();
+    // Primero el panel: la alerta roja no espera a nada más.
+    mostrarUltimo(datos.resultado, datos.lineasBitacora, texto);
     agregarTarjeta(datos.lineasBitacora, datos.resultado.estado);
     actualizarResumen(datos.contadores);
     inputInstruccion.value = '';
