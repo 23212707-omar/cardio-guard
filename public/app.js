@@ -261,11 +261,46 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
   panelUltimo.replaceChildren(panel);
 }
 
+// ---------- Resumen de la ejecución ----------
+// Los contadores son los del servidor (POST y GET /api/estado). Cualquier valor
+// que no sea un número se muestra como 0, así que una respuesta incompleta no
+// rompe la página.
+
+const numeroOCero = (v) => (Number.isFinite(v) ? v : 0);
+let resumenDePost = false; // un POST es más reciente que un GET /api/estado lento
+
 function actualizarResumen(contadores) {
-  document.getElementById('r-total').textContent = contadores.total;
-  document.getElementById('r-aceptadas').textContent = contadores.aceptadas;
-  document.getElementById('r-alerta').textContent = contadores.conAlerta;
-  document.getElementById('r-rechazadas').textContent = contadores.rechazadas;
+  const c = contadores || {};
+  document.getElementById('r-total').textContent = numeroOCero(c.total);
+  document.getElementById('r-aceptadas').textContent = numeroOCero(c.aceptadas);
+  document.getElementById('r-alerta').textContent = numeroOCero(c.conAlerta);
+  document.getElementById('r-rechazadas').textContent = numeroOCero(c.rechazadas);
+
+  // Desglose opcional: solo si la API entrega ambos campos y hay rechazos.
+  const hayDesglose = Number.isFinite(c.erroresSintaxis) && Number.isFinite(c.erroresSemanticos);
+  document.getElementById('r-sintaxis').textContent = numeroOCero(c.erroresSintaxis);
+  document.getElementById('r-semanticos').textContent = numeroOCero(c.erroresSemanticos);
+  document.getElementById('r-desglose').hidden = !(hayDesglose && numeroOCero(c.rechazadas) > 0);
+}
+
+// Al cargar: fecha de procesamiento, archivo de bitácora y contadores. Si falla
+// (red, 404, JSON inválido) no se muestra nada: queda el cero inicial.
+async function cargarEstado() {
+  try {
+    const respuesta = await fetch('/api/estado', { cache: 'no-store' });
+    if (!respuesta.ok) return;
+    const estado = await respuesta.json();
+    if (!estado || typeof estado !== 'object') return;
+
+    if (typeof estado.fechaProcesamiento === 'string' && typeof estado.archivoBitacora === 'string') {
+      document.getElementById('r-fecha').textContent = estado.fechaProcesamiento;
+      document.getElementById('r-archivo').textContent = estado.archivoBitacora;
+      document.getElementById('r-meta').hidden = false;
+    }
+    if (!resumenDePost) actualizarResumen(estado.contadores);
+  } catch (err) {
+    // Sin mensaje: la página funciona igual con los contadores en cero.
+  }
 }
 
 // ---------- Bitácora de la sesión ----------
@@ -467,6 +502,7 @@ async function enviarTexto(texto, captura) {
     // Primero el panel: la alerta roja no espera a nada más.
     mostrarUltimo(datos.resultado, datos.lineasBitacora, texto);
     agregarTarjeta(datos.resultado, datos.lineasBitacora);
+    resumenDePost = true;
     actualizarResumen(datos.contadores);
     if (datos.resultado.estado !== 'RECHAZADO') recordarPaciente(datos.resultado.id);
     limpiarTrasEnvio(captura, datos.resultado.estado);
@@ -541,3 +577,4 @@ formulario.addEventListener('submit', (evento) => {
 });
 
 actualizarVistaPrevia();
+cargarEstado();

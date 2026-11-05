@@ -465,27 +465,54 @@ main {
 .chip:active { background: var(--seleccion); }
 
 /* ---------- Resumen ---------- */
-.resumen {
-  display: flex;
-  justify-content: space-between;
+.resumen { padding: var(--esp-3) var(--esp-4); }
+
+.resumen-cifras {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--esp-3);
-  padding: var(--esp-3) var(--esp-4);
-  text-align: center;
+  margin: 0;
 }
 
-.resumen .etiqueta {
-  display: block;
+/* Marca de color arriba de cada cifra; el significado lo da la etiqueta. */
+.cifra {
+  padding-top: var(--esp-2);
+  border-top: 3px solid var(--cifra-color, var(--borde));
+}
+.cifra-total     { --cifra-color: var(--marca); }
+.cifra-aceptado  { --cifra-color: var(--ok-borde); }
+.cifra-alerta    { --cifra-color: var(--alerta-solido); }
+.cifra-rechazado { --cifra-color: var(--rech-borde); }
+
+.cifra dt {
   font-size: var(--texto-xs);
   color: var(--tinta-suave);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.resumen strong {
+.cifra dd {
+  margin: 0;
   font-size: var(--texto-xl);
   font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.resumen-desglose,
+.resumen-meta {
+  margin: var(--esp-3) 0 0;
+  padding-top: var(--esp-2);
+  border-top: 1px solid var(--borde);
+  font-size: var(--texto-xs);
+  color: var(--tinta-suave);
   font-variant-numeric: tabular-nums;
 }
+
+.resumen-desglose + .resumen-meta { margin-top: var(--esp-2); }
+.resumen-meta { display: flex; flex-wrap: wrap; gap: var(--esp-1) var(--esp-4); }
+.resumen-meta code { font-family: var(--fuente-mono); }
+.resumen strong { font-weight: 600; }
 
 /* ---------- Bitácora ---------- */
 .historial {
@@ -881,8 +908,7 @@ main {
 /* ---------- Adaptación mínima ---------- */
 @media (max-width: 30rem) {
   .boton-enviar { width: 100%; }
-  .resumen { flex-wrap: wrap; }
-  .resumen > div { flex: 1 1 40%; }
+  .resumen-cifras { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ---------- Movimiento reducido ---------- */

@@ -117,11 +117,22 @@
     </form>
   </section>
 
-  <section class="resumen" id="resumen" aria-label="Resumen de instrucciones procesadas">
-    <div><span class="etiqueta">Procesadas</span><strong id="r-total">0</strong></div>
-    <div><span class="etiqueta">Aceptadas</span><strong id="r-aceptadas">0</strong></div>
-    <div><span class="etiqueta">Con alerta</span><strong id="r-alerta">0</strong></div>
-    <div><span class="etiqueta">Rechazadas</span><strong id="r-rechazadas">0</strong></div>
+  <!-- Contadores de la ejecución del servidor (vienen de la API; no se
+       reinician al recargar la página). Con la API caída se quedan en cero. -->
+  <section class="resumen" id="resumen" aria-label="Resumen de la ejecución">
+    <dl class="resumen-cifras">
+      <div class="cifra cifra-total"><dt>Procesadas</dt><dd id="r-total">0</dd></div>
+      <div class="cifra cifra-aceptado"><dt>Aceptadas</dt><dd id="r-aceptadas">0</dd></div>
+      <div class="cifra cifra-alerta"><dt>Con alerta</dt><dd id="r-alerta">0</dd></div>
+      <div class="cifra cifra-rechazado"><dt>Rechazadas</dt><dd id="r-rechazadas">0</dd></div>
+    </dl>
+    <p class="resumen-desglose" id="r-desglose" hidden>
+      Rechazos: <strong id="r-sintaxis">0</strong> de sintaxis · <strong id="r-semanticos">0</strong> semánticos
+    </p>
+    <p class="resumen-meta" id="r-meta" hidden>
+      <span>Procesamiento: <strong id="r-fecha"></strong></span>
+      <span>Bitácora: <code id="r-archivo"></code></span>
+    </p>
   </section>
 
   <section class="ultimo" aria-labelledby="ultimo-titulo">
