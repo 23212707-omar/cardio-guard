@@ -327,33 +327,44 @@ function crearTablaListado(resultado) {
   }
 
   const total = Number.isFinite(resultado.total) ? resultado.total : pacientes.length;
-  const tabla = el('table', 'tabla-pacientes');
+  // En pantallas angostas el CSS apila cada fila como tarjeta (display distinto
+  // de table-*), lo que hace que algunos navegadores pierdan la semántica de
+  // tabla; los roles explícitos la conservan. Cada celda lleva su etiqueta en
+  // data-etiqueta para mostrarla en la tarjeta.
+  const [hID, hEdad, hSexo, hSangre, hRev, hClas] = ['ID', 'Edad', 'Sexo', 'Sangre', 'Última revisión', 'Clasificación'];
+  const encabezados = [hID, hEdad, hSexo, hSangre, hRev, hClas];
+  const conRol = (nodo, rol, etiqueta) => {
+    nodo.setAttribute('role', rol);
+    if (etiqueta) nodo.setAttribute('data-etiqueta', etiqueta);
+    return nodo;
+  };
+
+  const tabla = conRol(el('table', 'tabla-pacientes'), 'table');
   tabla.appendChild(el('caption', 'solo-lector', `${total} paciente(s) registrado(s)`));
-  const encabezados = ['ID', 'Edad', 'Sexo', 'Sangre', 'Última revisión', 'Clasificación'];
-  const thead = el('thead');
-  const filaTh = el('tr');
+  const thead = conRol(el('thead'), 'rowgroup');
+  const filaTh = conRol(el('tr'), 'row');
   thead.appendChild(filaTh);
   for (const t of encabezados) {
-    const th = el('th', null, t);
+    const th = conRol(el('th', null, t), 'columnheader');
     th.scope = 'col';
     filaTh.appendChild(th);
   }
   tabla.appendChild(thead);
 
-  const tbody = el('tbody');
+  const tbody = conRol(el('tbody'), 'rowgroup');
   for (const p of pacientes) {
-    const fila = el('tr');
-    const id = el('th', 'col-id', p.id);
+    const fila = conRol(el('tr'), 'row');
+    const id = conRol(el('th', 'col-id', p.id), 'rowheader', hID);
     id.scope = 'row';
     fila.appendChild(id);
-    fila.appendChild(el('td', 'col-num', p.edad));
-    fila.appendChild(el('td', null, p.sexo));
-    fila.appendChild(el('td', null, p.sangre));
+    fila.appendChild(conRol(el('td', 'col-num', p.edad), 'cell', hEdad));
+    fila.appendChild(conRol(el('td', null, p.sexo), 'cell', hSexo));
+    fila.appendChild(conRol(el('td', null, p.sangre), 'cell', hSangre));
 
     const rev = p.ultimaRevision;
     const c = p.clasificacion;
-    const celdaRev = el('td', 'col-rev');
-    const celdaClas = el('td', 'col-clas');
+    const celdaRev = conRol(el('td', 'col-rev'), 'cell', hRev);
+    const celdaClas = conRol(el('td', 'col-clas'), 'cell', hClas);
     if (rev && c) {
       celdaRev.appendChild(el('span', 'rev-valores', `${rev.sistolica}/${rev.diastolica} mmHg · ${rev.frecuencia} lpm`));
       celdaRev.appendChild(el('span', 'fecha rev-fecha', rev.fecha));
