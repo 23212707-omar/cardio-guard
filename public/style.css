@@ -946,6 +946,9 @@ main {
 .dato { min-width: 0; overflow-wrap: anywhere; }
 .dato dd { margin: 0; }
 
+/* Clasificación ocupa la fila completa en todos los anchos */
+.dato-ancho { grid-column: 1 / -1; }
+
 .dato-etiqueta {
   font-size: var(--texto-xs);
   letter-spacing: 0.04em;
@@ -955,10 +958,15 @@ main {
 
 .dato-valor {
   font-family: var(--fuente-mono);
-  font-size: var(--texto-xl);
+  font-size: clamp(var(--texto-lg), 5vw, var(--texto-xl));
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
+  /* Corta solo entre palabras; break-word es último recurso y no reduce
+     el ancho mínimo, así "hipertensiva" nunca se parte si cabe */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: manual;
 }
 
 .dato-sub {
