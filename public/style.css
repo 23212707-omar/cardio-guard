@@ -1190,6 +1190,80 @@ main {
 .tabla-pacientes .sin-revision { font-size: var(--texto-xs); color: var(--tinta-suave); }
 .tabla-pacientes .etiquetas-clinicas { margin: var(--esp-1) 0 0; }
 
+/* LISTAR en pantallas angostas: cada paciente es una tarjeta apilada. Los
+   roles ARIA (puestos en app.js) conservan la semántica de tabla; el
+   encabezado de columnas se oculta solo visualmente. */
+@media (max-width: 42rem) {
+  .tabla-scroll {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .tabla-pacientes,
+  .tabla-pacientes tbody { display: block; min-width: 0; }
+  .tabla-pacientes tbody { display: grid; gap: var(--esp-3); }
+
+  .tabla-pacientes thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .tabla-pacientes tbody tr {
+    display: grid;
+    gap: var(--esp-2);
+    padding: var(--esp-3);
+    border: 1px solid var(--u-borde);
+    border-radius: var(--radio-sm);
+    background: var(--panel);
+    color: var(--tinta);
+  }
+
+  .tabla-pacientes tbody th,
+  .tabla-pacientes tbody td {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--esp-2);
+    align-items: baseline;
+    padding: 0;
+    border: 0;
+    overflow-wrap: break-word;
+  }
+
+  /* Etiqueta visible; el "/ ''" la deja fuera del nombre accesible para que
+     los lectores de pantalla no la repitan (ya la anuncia el encabezado). */
+  .tabla-pacientes tbody [data-etiqueta]::before {
+    content: attr(data-etiqueta);
+    content: attr(data-etiqueta) / "";
+    font-family: var(--fuente-texto);
+    font-size: var(--texto-xs);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+  }
+
+  /* El valor (o el grupo de líneas) ocupa la segunda columna */
+  .tabla-pacientes .col-rev,
+  .tabla-pacientes .col-clas { min-width: 0; }
+  .tabla-pacientes .rev-valores { white-space: normal; }
+  .tabla-pacientes td > span,
+  .tabla-pacientes td > div { grid-column: 2; }
+  .tabla-pacientes .etiquetas-clinicas { margin: var(--esp-1) 0 0; }
+}
+
+/* Viewport diminuto (zoom 200 % en móvil): la etiqueta pasa encima del valor */
+@media (max-width: 18rem) {
+  .tabla-pacientes tbody th,
+  .tabla-pacientes tbody td { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .tabla-pacientes td > span,
+  .tabla-pacientes td > div { grid-column: 1; }
+}
+
 /* ---------- Adaptación mínima ---------- */
 @media (max-width: 30rem) {
   .boton-enviar { width: 100%; }
