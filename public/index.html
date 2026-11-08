@@ -181,8 +181,8 @@
       <p>Los valores se conservan en los campos para que puedas corregirlos.</p>
 
       <h2 class="ayuda-titulo">Estado de la instrucción y etiqueta clínica</h2>
-      <p>Son dos cosas distintas. El <strong>estado</strong> dice qué pasó con la instrucción (aceptada, alerta, advertencia o rechazada). La <strong>etiqueta clínica</strong> describe la última revisión del paciente: <strong>CRISIS HIPERTENSIVA</strong> o <strong>DATO SOSPECHOSO</strong>.</p>
-      <p>Por eso <code>CONSULTAR P001</code> o <code>LISTAR</code> quedan <em>Aceptado</em> (verde) aunque el paciente muestre una etiqueta: la consulta se hizo bien, y la etiqueta recuerda lo que registró su última lectura. La alerta roja solo aparece al registrar una lectura en crisis.</p>
+      <p>Son dos cosas distintas. El <strong>estado</strong> dice qué pasó con la instrucción (aceptada, alerta, advertencia o rechazada). La <strong>etiqueta clínica</strong> describe la última revisión del paciente: <strong>CRISIS HIPERTENSIVA</strong>, <strong>TAQUICARDIA SEVERA</strong>, <strong>BRADICARDIA SEVERA</strong> o <strong>DATO SOSPECHOSO</strong>. Pueden verse varias a la vez.</p>
+      <p>Por eso <code>CONSULTAR P001</code> o <code>LISTAR</code> quedan <em>Aceptado</em> (verde) aunque el paciente muestre una etiqueta: la consulta se hizo bien, y la etiqueta recuerda lo que registró su última lectura. La alerta roja solo aparece al registrar una lectura en crisis hipertensiva o con frecuencia cardíaca severa.</p>
 
       <h2 class="ayuda-titulo">Qué significa cada estado</h2>
       <ul class="ayuda-estados">
@@ -192,11 +192,11 @@
         </li>
         <li>
           <span class="insignia insignia-alerta"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.2 2.5h7.6l5.7 5.7v7.6l-5.7 5.7H8.2l-5.7-5.7V8.2z"/><path d="M12 7v6"/><path d="M12 16.5v.5"/></svg><span>Alerta</span></span>
-          <span>Se detectó una crisis hipertensiva (alerta roja).</span>
+          <span>Se detectó una crisis hipertensiva o una frecuencia cardíaca severa (alerta roja). Frecuencia severa: menos de 40 lpm (bradicardia severa) o más de 150 lpm (taquicardia severa). Si hay varios motivos, se muestran todos con un solo protocolo.</span>
         </li>
         <li>
           <span class="insignia insignia-advertencia"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3L2.5 20h19z"/><path d="M12 10v4.5"/><path d="M12 17.2v.3"/></svg><span>Advertencia</span></span>
-          <span>Dato sospechoso: valor fuera del rango fisiológico habitual; verifica la captura. Hoy aparece junto con una alerta, porque esos valores también son una crisis: se muestra como «ALERTA · DATO SOSPECHOSO».</span>
+          <span>Dato sospechoso: valor fuera del rango habitual; verifica la captura. Puede aparecer solo (por ejemplo, una presión de pulso muy baja) o junto con una alerta, como «ALERTA · DATO SOSPECHOSO». Causas: presión extrema, presión de pulso muy baja (diferencia menor de 10 mmHg) o frecuencia extrema (menos de 40 o más de 200 lpm); puede haber más de una.</span>
         </li>
         <li>
           <span class="insignia insignia-rechazado"><svg class="insignia-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z"/><path d="M8.5 8.5l7 7"/><path d="M15.5 8.5l-7 7"/></svg><span>Rechazado</span></span>
@@ -204,7 +204,7 @@
         </li>
       </ul>
 
-      <p class="ayuda-nota">Los resultados son de carácter orientativo, no son un diagnóstico médico.</p>
+      <p class="ayuda-nota">Los resultados y los umbrales (por ejemplo, 40 y 150 lpm) son de carácter orientativo, no son un diagnóstico médico.</p>
     </div>
   </details>
 

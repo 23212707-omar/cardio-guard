@@ -133,8 +133,9 @@ function leerBitacora(lineasBitacora) {
 
   const salida = {
     instruccion,
-    avisos: [],          // ¡ALERTA ROJA! y protocolo
-    sospechoso: null,
+    motivos: [],         // una línea "¡ALERTA ROJA! ..." por motivo (crisis y/o frecuencia)
+    protocolo: null,     // "Disparar protocolo..." (una sola, aunque haya varios motivos)
+    sospechosos: [],     // una línea "Dato sospechoso: ..." por causa
     anterior: null,      // { fecha, valores }
     recomendacion: null,
   };
@@ -142,10 +143,12 @@ function leerBitacora(lineasBitacora) {
   for (const crudo of detalles) {
     const linea = crudo.trim();
     let c;
-    if (/^¡ALERTA ROJA!|^Disparar protocolo/.test(linea)) {
-      salida.avisos.push(linea);
+    if (/^¡ALERTA ROJA!/.test(linea)) {
+      salida.motivos.push(linea);
+    } else if (/^Disparar protocolo/.test(linea)) {
+      salida.protocolo = linea;
     } else if (/^Dato sospechoso/.test(linea)) {
-      salida.sospechoso = linea;
+      salida.sospechosos.push(linea);
     } else if ((c = linea.match(/^Cambio vs\. (\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?):.*\((.+)\)$/))) {
       // La fecha puede traer hora (AAAA-MM-DD HH:MM) o ser solo la fecha (filas antiguas).
       salida.anterior = { fecha: c[1], valores: c[2].replace('->', '→') };
@@ -255,7 +258,26 @@ function crearComparacion(comparacion, b) {
 // texto, nunca solo color. Cada una describe la última revisión del paciente.
 const ETIQUETAS_CLINICAS = {
   crisis: { icono: 'alerta', texto: 'CRISIS HIPERTENSIVA' },
+  taquicardia: { icono: 'alerta', texto: 'TAQUICARDIA SEVERA' },
+  bradicardia: { icono: 'alerta', texto: 'BRADICARDIA SEVERA' },
   sospechoso: { icono: 'advertencia', texto: 'DATO SOSPECHOSO' },
+};
+
+// clasificacion.alertaFrecuencia -> clave de ETIQUETAS_CLINICAS.
+const ETIQUETA_POR_ALERTA_FRECUENCIA = {
+  TAQUICARDIA_SEVERA: 'taquicardia',
+  BRADICARDIA_SEVERA: 'bradicardia',
+};
+
+// Causas de clasificacion.causasSospechoso -> texto en español.
+// OJO: los umbrales de estos textos deben coincidir con las constantes de
+// src/semantics/clasificacion.js (PRESION_SISTOLICA_EXTREMA, PRESION_DIASTOLICA_EXTREMA,
+// PULSO_MINIMO_PLAUSIBLE, FRECUENCIA_EXTREMA_BAJA, FRECUENCIA_EXTREMA_ALTA).
+// Si cambian allá, hay que actualizarlos aquí y en la ayuda de index.html.
+const TEXTO_CAUSA_SOSPECHOSO = {
+  PRESION_EXTREMA: 'Presión extrema (sistólica mayor de 250 o diastólica mayor de 150 mmHg).',
+  PULSO_BAJO: 'Presión de pulso muy baja (diferencia entre sistólica y diastólica menor de 10 mmHg).',
+  FRECUENCIA_EXTREMA: 'Frecuencia extrema (menor de 40 o mayor de 200 lpm).',
 };
 
 function crearEtiquetaClinica(tipo) {
@@ -266,14 +288,31 @@ function crearEtiquetaClinica(tipo) {
   return etiqueta;
 }
 
-// Contenedor con 0–2 etiquetas (pueden coexistir); null si no hay ninguna.
+// Contenedor con 0–3 etiquetas (pueden coexistir): crisis, frecuencia severa y
+// dato sospechoso. null si no hay ninguna.
 function crearEtiquetasPaciente(paciente) {
   const c = paciente.clasificacion;
-  if (!c || (!c.crisis && !c.datoSospechoso)) return null;
+  if (!c) return null;
+  const claveFrecuencia = ETIQUETA_POR_ALERTA_FRECUENCIA[c.alertaFrecuencia];
+  if (!c.crisis && !claveFrecuencia && !c.datoSospechoso) return null;
   const caja = el('div', 'etiquetas-clinicas');
   if (c.crisis) caja.appendChild(crearEtiquetaClinica('crisis'));
+  if (claveFrecuencia) caja.appendChild(crearEtiquetaClinica(claveFrecuencia));
   if (c.datoSospechoso) caja.appendChild(crearEtiquetaClinica('sospechoso'));
   return caja;
+}
+
+// Causas del dato sospechoso (ficha de CONSULTAR). Un código desconocido se
+// muestra con un texto genérico en vez de romper la ficha.
+function crearCausasSospechoso(clasificacion) {
+  if (!clasificacion || !clasificacion.datoSospechoso) return null;
+  const causas = Array.isArray(clasificacion.causasSospechoso) ? clasificacion.causasSospechoso : [];
+  const lista = el('ul', 'causas-sospechoso');
+  for (const causa of causas) {
+    lista.appendChild(el('li', null, TEXTO_CAUSA_SOSPECHOSO[causa] || 'Valor fuera del rango habitual, verificar captura.'));
+  }
+  if (causas.length === 0) lista.appendChild(el('li', null, 'Valor fuera del rango habitual, verificar captura.'));
+  return crearBloque('Dato sospechoso', lista);
 }
 
 function crearFichaPaciente(paciente) {
@@ -281,19 +320,26 @@ function crearFichaPaciente(paciente) {
   const etiquetas = crearEtiquetasPaciente(paciente);
   if (etiquetas) nodos.push(etiquetas);
 
-  const datos = el('dl', 'ultimo-datos');
-  datos.appendChild(crearDato('Edad', `${paciente.edad} años`));
+  // Dos cuadrículas: datos personales (3) y revisión (Presión + Frecuencia en
+  // fila, Clasificación ancha), para que Frecuencia no quede sola en una fila.
+  const datos = el('dl', 'ultimo-datos ultimo-datos-personal');
+  datos.appendChild(crearDato('Edad', paciente.edad, 'años'));
   datos.appendChild(crearDato('Sexo', paciente.sexo));
   datos.appendChild(crearDato('Sangre', paciente.sangre));
+  nodos.push(datos);
 
   const rev = paciente.ultimaRevision;
   const c = paciente.clasificacion;
   if (rev && c) {
-    datos.appendChild(crearDato('Presión', `${rev.sistolica}/${rev.diastolica}`, 'mmHg'));
-    datos.appendChild(crearDato('Frecuencia', rev.frecuencia, `lpm · ${c.frecuencia.nombre}`));
-    datos.appendChild(crearDato('Clasificación', c.presion.nombre, null, true));
+    const datosRev = el('dl', 'ultimo-datos ultimo-datos-revision');
+    datosRev.appendChild(crearDato('Presión', `${rev.sistolica}/${rev.diastolica}`, 'mmHg'));
+    datosRev.appendChild(crearDato('Frecuencia', rev.frecuencia, `lpm · ${c.frecuencia.nombre}`));
+    datosRev.appendChild(crearDato('Clasificación', c.presion.nombre, null, true));
+    nodos.push(datosRev);
+
+    const causas = crearCausasSospechoso(c);
+    if (causas) nodos.push(causas);
   }
-  nodos.push(datos);
 
   if (rev && c) {
     const p = el('p', 'ultimo-comparacion');
@@ -366,7 +412,7 @@ function crearTablaListado(resultado) {
     const celdaRev = conRol(el('td', 'col-rev'), 'cell', hRev);
     const celdaClas = conRol(el('td', 'col-clas'), 'cell', hClas);
     if (rev && c) {
-      celdaRev.appendChild(el('span', 'rev-valores', `${rev.sistolica}/${rev.diastolica} mmHg · ${rev.frecuencia} lpm`));
+      celdaRev.appendChild(el('span', 'rev-valores', `${rev.sistolica}/${rev.diastolica} mmHg · ${rev.frecuencia} lpm`));
       celdaRev.appendChild(el('span', 'fecha rev-fecha', rev.fecha));
       celdaClas.appendChild(el('span', 'clas-linea', c.presion.nombre));
       celdaClas.appendChild(el('span', 'clas-linea clas-fc', `FC: ${c.frecuencia.nombre}`));
@@ -440,8 +486,11 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
   } else if (resultado.instruccion === 'LISTADO') {
     for (const nodo of crearTablaListado(resultado)) cuerpo.appendChild(nodo);
   } else {
-    for (const aviso of b.avisos) cuerpo.appendChild(el('p', 'ultimo-aviso', aviso));
-    if (b.sospechoso) cuerpo.appendChild(el('p', 'ultimo-sospechoso', b.sospechoso));
+    // Alerta: un encabezado por motivo (crisis y/o frecuencia) y un solo protocolo.
+    for (const motivo of b.motivos) cuerpo.appendChild(el('p', 'ultimo-aviso', motivo));
+    if (b.protocolo) cuerpo.appendChild(el('p', 'ultimo-protocolo', b.protocolo));
+    // Dato sospechoso: una línea por causa; puede venir solo o junto con alerta.
+    for (const sosp of b.sospechosos) cuerpo.appendChild(el('p', 'ultimo-sospechoso', sosp));
 
     const comp = resultado.comparacion;
     const lec = resultado.instruccion === 'LECTURA' ? leerLectura(textoEnviado) : null;
@@ -449,7 +498,7 @@ function mostrarUltimo(resultado, lineasBitacora, textoEnviado) {
     if (lec) datos.appendChild(crearDato('Presión', `${lec.sistolica}/${lec.diastolica}`, 'mmHg'));
     if (lec) {
       const cat = comp && comp.frecuencia ? comp.frecuencia.actual.nombre : '';
-      datos.appendChild(crearDato('Frecuencia', lec.frecuencia, cat ? `lpm · ${cat}` : 'lpm'));
+      datos.appendChild(crearDato('Frecuencia', lec.frecuencia, cat ? `lpm · ${cat}` : 'lpm'));
     }
     if (resultado.clasificacionPresion) {
       datos.appendChild(crearDato('Clasificación', resultado.clasificacionPresion.nombre, null, true));
