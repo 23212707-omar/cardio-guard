@@ -345,6 +345,16 @@ console.log('\n=== ALERTA por frecuencia severa ===');
     lineasCon(run('P002; 190/125, 75'), PROTOCOLO).length === 1 &&
     lineasCon(run('P002; 190/125, 75'), 'severa').length === 0);
 
+  // Recomendación de texto: se omite con cualquier ALERTA, se mantiene con solo advertencia.
+  const tieneRec = (t) => lineasCon(run(t), 'Recomendación:').length > 0;
+  check('120/80, 39 -> sin recomendación', !tieneRec('P001; 120/80, 39'));
+  check('120/80, 151 -> sin recomendación', !tieneRec('P001; 120/80, 151'));
+  check('120/80, 200 -> alerta sola, sin recomendación', !tieneRec('P001; 120/80, 200'));
+  check('120/80, 201 -> alerta y advertencia, sin recomendación', !tieneRec('P001; 120/80, 201'));
+  check('120/80, 150 -> con recomendación', tieneRec('P001; 120/80, 150'));
+  check('190/125, 160 -> sin recomendación', !tieneRec('P002; 190/125, 160'));
+  check('120/115, 75 -> solo advertencia, con recomendación', tieneRec('P001; 120/115, 75'));
+
   check('120/115, 75 -> ACEPTADO_CON_ADVERTENCIA solo (pulso bajo)',
     estado('P003; 120/115, 75') === 'ACEPTADO_CON_ADVERTENCIA');
 
