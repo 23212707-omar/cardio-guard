@@ -760,9 +760,9 @@ let capturaActiva = 'registro';
 // esta sesión del navegador (resultado.id de un REGISTRAR, lectura o CONSULTAR
 // aceptados) y los de resultado.pacientes de un LISTAR. Solo sugiere: un ID
 // inexistente debe llegar al intérprete.
-// TODO: cuando exista GET /api/pacientes, llenar esta lista desde ahí (hoy no
-// existe y no se usa); así aparecerían desde el inicio los pacientes de
-// sesiones anteriores, sin tener que hacer LISTAR primero.
+// Además, GET /api/pacientes (solo IDs) trae los pacientes ya guardados al abrir
+// la página y después de un REGISTRAR aceptado o un LISTAR. Si falla, no pasa
+// nada: la lista queda como estaba.
 const listaPacientes = document.getElementById('lista-pacientes');
 const pacientesSesion = new Set();
 
@@ -773,6 +773,21 @@ function recordarPaciente(id) {
   opcion.value = id;
   listaPacientes.appendChild(opcion);
 }
+
+async function cargarPacientesGuardados() {
+  try {
+    const respuesta = await fetch('/api/pacientes', { cache: 'no-store' });
+    if (!respuesta.ok) return;
+    const datos = await respuesta.json();
+    if (!datos || !Array.isArray(datos.pacientes)) return;
+    for (const p of datos.pacientes) {
+      if (p && typeof p.id === 'string') recordarPaciente(p.id);
+    }
+  } catch (err) {
+    // En silencio: solo son sugerencias.
+  }
+}
+cargarPacientesGuardados();
 
 function inputsDe(nombre) {
   return CAPTURAS[nombre].campos.map((id) => document.getElementById(id));
@@ -859,6 +874,9 @@ async function enviarTexto(texto, captura) {
       }
     }
     limpiarTrasEnvio(captura, datos.resultado.estado);
+    // Sin await: no retrasa nada; las sugerencias se refrescan por su cuenta.
+    const esRegistroAceptado = datos.resultado.estado !== 'RECHAZADO' && /^\s*REGISTRAR\b/i.test(texto);
+    if (esRegistroAceptado || /^\s*LISTAR\b/i.test(texto)) cargarPacientesGuardados();
   } catch (err) {
     mostrarError('No se pudo conectar con el servidor. Revisa que esté en marcha e inténtalo de nuevo.');
     numeroLinea -= 1;

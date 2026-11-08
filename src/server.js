@@ -27,7 +27,10 @@ const { crearInterpreter } = require('./interpreter');
  * frontend para el encabezado "[LÍNEA X]" de la bitácora.
  */
 
-const RUTA_DATOS = path.join(__dirname, '..', 'data');
+// DATOS_DIR existe SOLO para pruebas (tests/api.pacientes.manual.js): permite
+// apuntar el CSV y las bitácoras a una carpeta temporal. Sin la variable, la
+// ruta es la de siempre (data/).
+const RUTA_DATOS = process.env.DATOS_DIR || path.join(__dirname, '..', 'data');
 const RUTA_PACIENTES = path.join(RUTA_DATOS, 'pacientes.csv');
 const RUTA_BITACORAS = path.join(RUTA_DATOS, 'bitacoras');
 const RUTA_PUBLIC = path.join(__dirname, '..', 'public');
@@ -38,6 +41,7 @@ const PUERTO = process.env.PUERTO || 3000;
 let bitacora;
 let fechaProcesamiento;
 let interpreter;
+let pacientesRepo;
 
 // Contadores en memoria para el resumen en vivo del frontend. Se reinician
 // junto con el servidor, igual que la bitácora.
@@ -113,8 +117,33 @@ app.get('/api/estado', (req, res) => {
   });
 });
 
+// Solo lectura: únicamente los IDs de los pacientes guardados, para las
+// sugerencias de la interfaz. No pasa por el intérprete, no escribe en la
+// bitácora, no cuenta en los contadores y no consume número de línea.
+app.get('/api/pacientes', async (req, res) => {
+  try {
+    let ids;
+    if (typeof pacientesRepo.listar === 'function') {
+      // Orden de registro (CSV: orden del archivo; SQL: columna `orden`).
+      ids = (await pacientesRepo.listar()).map((p) => p.id);
+    } else {
+      ids = Array.from(await pacientesRepo.idsExistentes());
+    }
+    res.json({ pacientes: ids.map((id) => ({ id })) });
+  } catch (err) {
+    if (err && err.name === 'ErrorBaseDatos') {
+      const causa = err.causa || {};
+      console.error(`[BD] ${err.message} (${causa.code || 'sin código'}): ${sinContrasena(causa.message || '')}`);
+      return res.status(503).json({ error: 'No se pudo acceder a la base de datos. Intenta de nuevo en un momento.' });
+    }
+    console.error('Error inesperado al listar los IDs de pacientes:', err);
+    res.status(500).json({ error: 'Error interno al listar los pacientes.' });
+  }
+});
+
 async function iniciar() {
-  const { repo: pacientesRepo, descripcion, cerrar } = await seleccionarRepo({ rutaCsv: RUTA_PACIENTES });
+  const { repo, descripcion, cerrar } = await seleccionarRepo({ rutaCsv: RUTA_PACIENTES });
+  pacientesRepo = repo;
   bitacora = crearBitacora(RUTA_BITACORAS, new Date());
   // Fecha de arranque (hora local), solo informativa: encabezado de la bitácora
   // y /api/estado. Las revisiones usan la fecha y hora de cada instrucción.
