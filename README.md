@@ -20,9 +20,23 @@ npm start
 ```
 
 Esto abre el servidor en **http://localhost:3000**. Ahí mismo se sirve la
-interfaz web (`public/index.html`), donde se puede escribir una instrucción
-(`REGISTRAR P001, 45, M, O+` o `P001; 118/76, 75`) y ver el resultado al
-instante.
+interfaz web (`public/index.html`), donde se captura una instrucción y se ve
+el resultado al instante. Las instrucciones son cuatro:
+
+```
+REGISTRAR P001, 45, M, O+     da de alta a un paciente
+P001; 118/76, 75              evalúa una lectura de presión y frecuencia
+CONSULTAR P001                muestra los datos y la última revisión
+LISTAR                        muestra todos los pacientes registrados
+```
+
+El ID del paciente es la letra `P` seguida de dígitos, con un máximo de 20
+caracteres.
+
+La captura web se hace **por campos**, en cinco pestañas: **Registro**,
+**Lectura**, **Consultar**, **Listar** y **Directa**. Las cuatro primeras
+arman la instrucción a partir de los campos; **Directa** permite escribirla
+tal cual.
 
 Para usar otro puerto:
 
@@ -30,10 +44,27 @@ Para usar otro puerto:
 PUERTO=4000 npm start
 ```
 
+En PowerShell (Windows) la variable se define en una línea aparte:
+
+```powershell
+$env:PUERTO = 4000
+npm start
+```
+
+## API
+
+- `POST /api/procesar` — recibe `{ texto, numeroLinea }` y responde
+  `{ resultado, lineasBitacora, contadores }`.
+- `GET /api/estado` — responde `{ fechaProcesamiento, archivoBitacora, contadores }`.
+- `GET /api/pacientes` — solo lectura: responde `{ pacientes: [{ id }] }` con
+  los IDs guardados. No pasa por el intérprete, no escribe en la bitácora ni
+  cuenta en los contadores.
+
 ## Qué se genera al correr el servidor
 
-- `data/pacientes.csv` — se crea si no existe. Guarda a los pacientes
-  registrados y su última revisión aceptada.
+- `data/pacientes.csv` — con `REPOSITORIO=csv` (el valor por defecto) se crea
+  si no existe. Guarda a los pacientes registrados y su última revisión
+  aceptada.
 - `data/bitacoras/bitacora_FECHA_HORA.txt` — se crea **una** al arrancar el
   servidor (no una por instrucción), y ahí se van agregando todas las
   instrucciones que se procesen mientras el servidor siga corriendo. Si se
@@ -54,13 +85,16 @@ PUERTO=4000 npm start
 
 ```
 src/
-  lexer/lexer.js            cadena de texto -> tokens
-  parser/parser.js          tokens -> árbol (REGISTRAR o lectura)
+  lexer/lexer.js            cadena de texto -> tokens (REGISTRAR, CONSULTAR,
+                            LISTAR, ID, NUM, SANGRE, etc.)
+  parser/parser.js          tokens -> árbol (REGISTRAR, lectura, CONSULTAR o LISTAR)
   automaton/afd.js          autómata finito que controla el flujo
   semantics/
     validarRegistro.js      reglas semánticas de REGISTRAR
     validarLectura.js       reglas semánticas de una lectura
+    validarConsulta.js      reglas semánticas de CONSULTAR (el paciente debe existir)
     clasificacion.js        categorías de presión/frecuencia y comparación
+  diagnostico.js             marcador "^" de los errores léxicos y sintácticos
   storage/
     pacientesRepo.js        lee y escribe pacientes.csv
     pacientesRepoSql.js     pacientes e historial en SQL Server (mssql)
@@ -71,6 +105,10 @@ src/
 
 public/
   index.html, style.css, app.js    interfaz web
+
+docs/
+  Historial_del_Proyecto.md    historia del proyecto: cómo evolucionó, qué
+                               problemas hubo y qué decisiones se tomaron
 
 tests/
   *.manual.js                pruebas manuales de cada módulo (ver abajo)
@@ -87,9 +125,11 @@ node tests/lexer.manual.js
 node tests/parser.manual.js
 node tests/afd.manual.js
 node tests/semantics.manual.js
+node tests/diagnostico.manual.js
 node tests/storage.manual.js
 node tests/storage.sql.manual.js   # se omite sin SQL Server
 node tests/interpreter.manual.js   # prueba de integración completa
+node tests/api.pacientes.manual.js # arranca el servidor en un puerto temporal (CSV en carpeta temporal)
 ```
 
 `interpreter.manual.js` reproduce el ejemplo de referencia documentado (9
@@ -99,7 +139,9 @@ termine con los valores esperados.
 
 ## Documentación
 
-El diseño completo (alcances, limitaciones, lenguaje de instrucciones,
-tokens, gramática, archivos, flujo, clasificación clínica y manejo de
-errores) está en `Cardio_Guard_Contexto_Proyecto.md` y en
-`Cardio_Guard_Documentacion.docx`, compartidos aparte de este repositorio.
+La historia del proyecto (cómo evolucionó, qué problemas hubo y qué
+decisiones se tomaron) está en `docs/Historial_del_Proyecto.md`. El diseño
+completo (alcances, limitaciones, lenguaje de instrucciones, tokens,
+gramática, archivos, flujo, clasificación clínica y manejo de errores) está en
+el documento técnico `Cardio_Guard_Documentacion.docx`, que se comparte aparte
+de este repositorio.
