@@ -1,6 +1,6 @@
 'use strict';
 
-const { validarRegistro } = require('../src/semantics/validarRegistro');
+const { validarRegistro, LONGITUD_MAXIMA_ID } = require('../src/semantics/validarRegistro');
 const { validarLectura } = require('../src/semantics/validarLectura');
 const {
   clasificarPresion,
@@ -16,6 +16,25 @@ console.log(validarRegistro({ id: 'P001', edad: 45, sexo: 'M', sangre: 'O+' }, n
 console.log(validarRegistro({ id: 'P003', edad: 150, sexo: 'M', sangre: 'B+' }, new Set()));
 console.log(validarRegistro({ id: 'P010', edad: 40, sexo: 'X', sangre: 'O+' }, new Set()));
 console.log(validarRegistro({ id: 'P011', edad: 40, sexo: 'F', sangre: 'Z+' }, new Set()));
+
+// Longitud máxima del ID (LONGITUD_MAXIMA_ID = 20, la columna VARCHAR(20) de SQL)
+console.log('\n=== validarRegistro: longitud máxima del ID ===');
+{
+  const ok = (cond, texto) => console.log(`[${cond ? 'OK' : 'FALLÓ'}] ${texto}`);
+  const reg = (id, ids = new Set()) => validarRegistro({ id, edad: 45, sexo: 'M', sangre: 'O+' }, ids);
+  const id20 = 'P' + '1'.repeat(19);
+  const id21 = 'P' + '1'.repeat(20);
+  ok(LONGITUD_MAXIMA_ID === 20, 'LONGITUD_MAXIMA_ID vale 20');
+  ok(reg(id20).ok === true, 'ID de 20 caracteres -> aceptado');
+  const r21 = reg(id21);
+  ok(!r21.ok && r21.mensaje === `Error Semántico: identificador de paciente demasiado largo, máximo 20 caracteres (${id20}…).`,
+    `ID de 21 caracteres -> rechazo con el máximo y el ID recortado: ${r21.mensaje}`);
+  ok(reg('P' + '9'.repeat(500)).mensaje.length < 120, 'ID enorme (501 caracteres) -> el mensaje queda corto (ID recortado)');
+  ok(reg(id21, new Set([id21])).mensaje === r21.mensaje, 'la longitud se revisa ANTES que el duplicado (mismo mensaje aunque exista)');
+  ok(reg('P001', new Set(['P001'])).mensaje === 'Error Semántico: identificador de paciente inválido o duplicado (P001).',
+    'ID corto duplicado -> mensaje de siempre');
+  ok(reg('P001').ok === true, 'ID normal P001 -> aceptado');
+}
 
 console.log('\n=== validarLectura ===');
 

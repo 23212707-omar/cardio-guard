@@ -172,11 +172,47 @@ async function main() {
     check('obtener regresa objetos nuevos en cada llamada', o1 !== o2 && o1.ultimaRevision !== o2.ultimaRevision);
 
     // --- inyección SQL tratada como un ID más ---
-    const malo = "P001'; DROP TABLE pacientes;--";
-    check('existe(ID con inyección) -> false, sin error', (await repo.existe(malo)) === false);
-    check('obtener(ID con inyección) -> null', (await repo.obtener(malo)) === null);
-    await repo.agregar({ id: malo, edad: 20, sexo: 'M', sangre: 'B+' }).catch(() => {});
-    check('la tabla pacientes sigue existiendo y con sus filas', (await repo.listar()).length >= 3);
+    const filasAntes = (await repo.listar()).map((p) => p.id).join();
+    const tablaViva = async () => (await repo.listar()).map((p) => p.id).join();
+
+    // (a) ID con comillas que SÍ cabe en la columna (19 de 20 caracteres): es un ID más.
+    const malo = "P1';DROP TABLE x;--";
+    check(`el ID de prueba cabe en la columna (${malo.length} <= 20 caracteres)`, malo.length <= 20);
+    check('existe(ID con comillas) -> false, sin error', (await repo.existe(malo)) === false);
+    check('obtener(ID con comillas) -> null', (await repo.obtener(malo)) === null);
+    await repo.agregar({ id: malo, edad: 20, sexo: 'M', sangre: 'B+' });
+    const guardado = await repo.obtener(malo);
+    check('agregar guarda el texto exacto como un ID más (no se ejecutó como SQL)',
+      guardado !== null && guardado.id === malo && guardado.edad === 20);
+    check('la tabla pacientes sigue y conserva las demás filas',
+      (await tablaViva()) === `${filasAntes},${malo}`);
+
+    // (b) ID de 30 caracteres con el ataque clásico: no cabe en VARCHAR(20); debe fallar
+    // de forma segura (error del driver) sin ejecutar nada y sin tocar la tabla.
+    const largo = "P001'; DROP TABLE pacientes;--";
+    check(`el ID largo mide ${largo.length} caracteres (> 20)`, largo.length > 20);
+    // existe/obtener/actualizarRevision responden como a un ID inexistente (sin enviarlo a SQL);
+    // agregar (que el intérprete nunca alcanza, la validación lo rechaza antes) falla de forma segura.
+    check('existe(ID largo) -> false, sin error', (await repo.existe(largo)) === false);
+    check('obtener(ID largo) -> null, sin error', (await repo.obtener(largo)) === null);
+    let errLargo = null;
+    try {
+      await repo.actualizarRevision(largo, { fecha: '2026-11-08 10:00', sistolica: 1, diastolica: 1, frecuencia: 1 });
+    } catch (e) {
+      errLargo = e;
+    }
+    check('actualizarRevision(ID largo) lanza el mismo error que un ID inexistente',
+      errLargo !== null && errLargo.message === `No se puede actualizar la revisión de un paciente inexistente: ${largo}`);
+    errLargo = null;
+    try {
+      await repo.agregar({ id: largo, edad: 20, sexo: 'M', sangre: 'B+' });
+    } catch (e) {
+      errLargo = e;
+    }
+    check(`agregar(ID de ${largo.length} caracteres) falla de forma segura (ErrorBaseDatos)`,
+      errLargo !== null && errLargo.name === 'ErrorBaseDatos');
+    check('tras el ID largo la tabla pacientes y sus filas siguen intactas',
+      (await tablaViva()) === `${filasAntes},${malo}`);
 
     // --- duplicado: ErrorIdDuplicado ---
     error = null;

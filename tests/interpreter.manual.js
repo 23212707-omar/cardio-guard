@@ -379,6 +379,35 @@ console.log('\n=== ALERTA por frecuencia severa ===');
     claseF('P003').alertaFrecuencia === 'TAQUICARDIA_SEVERA' && filaF('P003').includes('[TAQUICARDIA SEVERA]') &&
     claseF('P004').alertaFrecuencia === 'BRADICARDIA_SEVERA' && filaF('P004').includes('[BRADICARDIA SEVERA]'));
 }
+
+// --- ID de más de 20 caracteres (LONGITUD_MAXIMA_ID): rechazos claros, sin tocar el CSV ---
+console.log('\n=== ID demasiado largo ===');
+{
+  const rutaLargo = path.join(carpetaTemp, 'largo.csv');
+  fs.writeFileSync(rutaLargo,
+    'id,edad,sexo,sangre,fecha_revision,sistolica,diastolica,frecuencia\nP001,45,M,O+,,,,\n', 'utf8');
+  const csvAntesLargo = fs.readFileSync(rutaLargo, 'utf8');
+  const interp = crearInterpreter({ pacientesRepo: crearPacientesRepo(rutaLargo), ahora });
+  const id20 = 'P' + '1'.repeat(19);
+  const id21 = 'P' + '1'.repeat(20);
+
+  const regOk = await interp.procesarLinea(`REGISTRAR ${id20}, 40, F, A+`, 1);
+  check('REGISTRAR con ID de 20 caracteres -> aceptado', regOk.resultado.estado === 'ACEPTADO');
+  const reg = await interp.procesarLinea(`REGISTRAR ${id21}, 40, F, A+`, 2);
+  const msg = `Error Semántico: identificador de paciente demasiado largo, máximo 20 caracteres (${id20}…).`;
+  check('REGISTRAR con ID de 21 caracteres -> RECHAZADO SEMANTICO con el mensaje nuevo',
+    reg.resultado.estado === 'RECHAZADO' && reg.resultado.tipo === 'SEMANTICO' && reg.resultado.mensaje === msg &&
+    reg.lineasBitacora[1] === `   ${msg}`);
+  const lec = await interp.procesarLinea(`${id21}; 120/80, 70`, 3);
+  check('lectura con ID largo -> "paciente … no encontrado" de siempre',
+    lec.resultado.estado === 'RECHAZADO' && lec.resultado.mensaje === `Error Semántico: paciente ${id21} no encontrado.`);
+  const con = await interp.procesarLinea(`CONSULTAR ${id21}`, 4);
+  check('CONSULTAR con ID largo -> "paciente … no encontrado" de siempre',
+    con.resultado.estado === 'RECHAZADO' && con.resultado.mensaje === `Error Semántico: paciente ${id21} no encontrado.`);
+  const csvDespues = fs.readFileSync(rutaLargo, 'utf8');
+  check('los rechazos por ID largo no cambian el CSV (solo se agregó el ID de 20)',
+    csvDespues === csvAntesLargo + `${id20},40,F,A+,,,,\n`);
+}
 })().catch((err) => {
   console.error(err);
   process.exit(1);

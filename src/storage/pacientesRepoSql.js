@@ -1,6 +1,7 @@
 'use strict';
 
 const sql = require('mssql');
+const { LONGITUD_MAXIMA_ID } = require('../semantics/validarRegistro');
 
 /**
  * pacientesRepoSql.js — Repositorio de pacientes sobre SQL Server
@@ -38,6 +39,11 @@ class ErrorIdDuplicado extends Error {
   }
 }
 
+/** Un ID más largo que la columna no puede existir: ni se envía a SQL (daría el error 8016). */
+function noCabe(id) {
+  return typeof id === 'string' && id.length > LONGITUD_MAXIMA_ID;
+}
+
 function filaAPaciente(fila) {
   const ultimaRevision = fila.fecha_revision
     ? {
@@ -69,8 +75,9 @@ class PacientesRepoSql {
   }
 
   async existe(id) {
+    if (noCabe(id)) return false;
     const r = await this._ejecutar('SELECT 1 AS x FROM pacientes WHERE id = @id', [
-      ['id', sql.VarChar(20), id],
+      ['id', sql.VarChar(LONGITUD_MAXIMA_ID), id],
     ]);
     return r.recordset.length > 0;
   }
@@ -82,8 +89,9 @@ class PacientesRepoSql {
   }
 
   async obtener(id) {
+    if (noCabe(id)) return null;
     const r = await this._ejecutar(`SELECT ${COLUMNAS} FROM pacientes WHERE id = @id`, [
-      ['id', sql.VarChar(20), id],
+      ['id', sql.VarChar(LONGITUD_MAXIMA_ID), id],
     ]);
     return r.recordset.length ? filaAPaciente(r.recordset[0]) : null;
   }
@@ -99,7 +107,7 @@ class PacientesRepoSql {
     try {
       await this.pool
         .request()
-        .input('id', sql.VarChar(20), id)
+        .input('id', sql.VarChar(LONGITUD_MAXIMA_ID), id)
         .input('edad', sql.Int, edad)
         .input('sexo', sql.Char(1), sexo)
         .input('sangre', sql.VarChar(3), sangre)
@@ -114,13 +122,16 @@ class PacientesRepoSql {
 
   /** Reemplaza la última revisión del paciente. Una sola sentencia UPDATE (atómica). */
   async actualizarRevision(id, { fecha, sistolica, diastolica, frecuencia }) {
+    if (noCabe(id)) {
+      throw new Error(`No se puede actualizar la revisión de un paciente inexistente: ${id}`);
+    }
     const r = await this._ejecutar(
       `UPDATE pacientes
           SET fecha_revision = CONVERT(datetime2(0), @fecha, 120),
               sistolica = @sistolica, diastolica = @diastolica, frecuencia = @frecuencia
         WHERE id = @id`,
       [
-        ['id', sql.VarChar(20), id],
+        ['id', sql.VarChar(LONGITUD_MAXIMA_ID), id],
         ['fecha', sql.VarChar(16), fecha],
         ['sistolica', sql.Int, sistolica],
         ['diastolica', sql.Int, diastolica],
