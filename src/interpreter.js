@@ -13,6 +13,7 @@ const {
   determinarAvisoClasificacion,
   compararConUltimaRevision,
   describirRevision,
+  CAUSA_SOSPECHOSO,
 } = require('./semantics/clasificacion');
 
 /**
@@ -266,10 +267,21 @@ function crearInterpreter({ pacientesRepo, ahora }) {
       detalles.push(`¡ALERTA ROJA! Crisis Hipertensiva detectada (${arbol.sistolica}/${arbol.diastolica} mmHg).`);
       detalles.push('Disparar protocolo de emergencia médica inmediata.');
     }
-    if (aviso === 'ADVERTENCIA' || aviso === 'ALERTA_Y_ADVERTENCIA') {
-      detalles.push(
-        `Dato sospechoso: valor fuera de rango fisiológico habitual, verificar captura (${arbol.sistolica}/${arbol.diastolica} mmHg).`
-      );
+    // Una línea "Dato sospechoso:" por cada causa.
+    for (const causa of validacion.causasSospechoso) {
+      if (causa === CAUSA_SOSPECHOSO.PRESION_EXTREMA) {
+        detalles.push(
+          `Dato sospechoso: valor fuera de rango fisiológico habitual, verificar captura (${arbol.sistolica}/${arbol.diastolica} mmHg).`
+        );
+      } else if (causa === CAUSA_SOSPECHOSO.PULSO_BAJO) {
+        detalles.push(
+          `Dato sospechoso: presión de pulso muy baja (diferencia de ${arbol.sistolica - arbol.diastolica} mmHg), verificar captura.`
+        );
+      } else if (causa === CAUSA_SOSPECHOSO.FRECUENCIA_EXTREMA) {
+        detalles.push(
+          `Dato sospechoso: frecuencia cardíaca extrema (${arbol.frecuencia} lpm), verificar captura.`
+        );
+      }
     }
 
     if (comparacion.resultado === 'PRIMERA_REVISION') {

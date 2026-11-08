@@ -1,6 +1,6 @@
 'use strict';
 
-const { esDatoSospechoso } = require('./clasificacion');
+const { causasDatoSospechoso } = require('./clasificacion');
 
 /**
  * validarLectura.js — Reglas semánticas para una instrucción de lectura
@@ -22,15 +22,18 @@ const { esDatoSospechoso } = require('./clasificacion');
 
 /**
  * @param {{sistolica:number, diastolica:number, frecuencia:number}} arbolLec
- * @returns {{ok:true, datoSospechoso:boolean} | {ok:false, mensaje:string}}
+ * Nota: la sistólica debe ser estrictamente mayor que la diastólica; si es
+ * menor o igual, la lectura se rechaza.
+ *
+ * @returns {{ok:true, datoSospechoso:boolean, causasSospechoso:string[]} | {ok:false, mensaje:string}}
  */
 function validarLectura(arbolLec) {
   const { sistolica, diastolica, frecuencia } = arbolLec;
 
-  if (diastolica > sistolica) {
+  if (sistolica <= diastolica) {
     return {
       ok: false,
-      mensaje: `Error Semántico: la diastólica (${diastolica}) no puede ser mayor que la sistólica (${sistolica}).`,
+      mensaje: `Error Semántico: la sistólica (${sistolica}) debe ser mayor que la diastólica (${diastolica}).`,
     };
   }
 
@@ -48,12 +51,13 @@ function validarLectura(arbolLec) {
     };
   }
 
-  // Presión fuera de rango fisiológico (sección 7.4): ya NO se rechaza.
-  // Se deja pasar como válida, marcada como "dato sospechoso", para que
-  // clasificacion.js decida si corresponde ADVERTENCIA, ALERTA, o ambas.
-  const datoSospechoso = esDatoSospechoso(sistolica, diastolica);
+  // Presión extrema, pulso muy bajo o frecuencia en extremos (sección 7.4):
+  // no se rechaza. Se deja pasar como válida, marcada como "dato
+  // sospechoso" (con sus causas), para que clasificacion.js decida si
+  // corresponde ADVERTENCIA, ALERTA, o ambas.
+  const causasSospechoso = causasDatoSospechoso(sistolica, diastolica, frecuencia);
 
-  return { ok: true, datoSospechoso };
+  return { ok: true, datoSospechoso: causasSospechoso.length > 0, causasSospechoso };
 }
 
 module.exports = { validarLectura };

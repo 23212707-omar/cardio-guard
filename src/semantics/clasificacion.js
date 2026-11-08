@@ -17,6 +17,25 @@
  * evento correspondiente de la tabla de transiciones.
  */
 
+// --- Umbrales de "dato sospechoso" (sección 7.4) ---
+// La lectura se acepta y se guarda, pero se marca para verificar la captura.
+// Presión extrema: fuera del rango fisiológico habitual.
+const PRESION_SISTOLICA_EXTREMA = 250; // sistólica > 250 mmHg
+const PRESION_DIASTOLICA_EXTREMA = 150; // diastólica > 150 mmHg
+// Presión de pulso (sistólica - diastólica) por debajo de este valor (mmHg).
+const PULSO_MINIMO_PLAUSIBLE = 10;
+// Frecuencia cardíaca en extremos (lpm): < 40 o > 200. Lo menor que 30 o
+// mayor que 220 ya se rechaza en validarLectura.js.
+const FRECUENCIA_EXTREMA_BAJA = 40;
+const FRECUENCIA_EXTREMA_ALTA = 200;
+
+// Códigos de las causas de dato sospechoso.
+const CAUSA_SOSPECHOSO = {
+  PRESION_EXTREMA: 'PRESION_EXTREMA',
+  PULSO_BAJO: 'PULSO_BAJO',
+  FRECUENCIA_EXTREMA: 'FRECUENCIA_EXTREMA',
+};
+
 // --- 7.1 Categorías de presión arterial (de más a menos severa) ---
 //
 // Tabla de la NOM-030-SSA2-2017:
@@ -96,42 +115,57 @@ function clasificarFrecuencia(frecuencia) {
 }
 
 /**
- * 7.4 — ¿La lectura debe marcarse con ALERTA (crisis), ADVERTENCIA (dato
- * sospechoso), ambas, o ninguna?
- *
- * Nota: con los umbrales definidos (crisis: sistólica > 180 o diastólica >
- * 120; dato sospechoso: sistólica > 250 o diastólica > 150), todo dato
- * sospechoso cae también dentro del rango de crisis (250 > 180 y 150 >
- * 120), así que ALERTA_Y_ADVERTENCIA es, en la práctica, el único caso en
- * el que aparece la advertencia. Se deja la rama "solo advertencia" de
- * forma explícita de todas formas, por claridad y por si en el futuro se
- * ajustan los umbrales de alguna de las dos reglas.
+ * 7.4 — Causas por las que una lectura es dato sospechoso (arreglo de
+ * códigos CAUSA_SOSPECHOSO, vacío si no hay ninguna). Única definición de
+ * los umbrales: la usan validarLectura.js y la descripción de revisiones
+ * guardadas. Si `frecuencia` no se pasa, no se evalúa esa causa.
  */
-/**
- * 7.4 — ¿La presión está fuera del rango fisiológico habitual? (dato
- * sospechoso). Única definición del umbral: la usan validarLectura.js y la
- * descripción de revisiones guardadas.
- */
-function esDatoSospechoso(sistolica, diastolica) {
-  return sistolica > 250 || diastolica > 150;
+function causasDatoSospechoso(sistolica, diastolica, frecuencia) {
+  const causas = [];
+  if (sistolica > PRESION_SISTOLICA_EXTREMA || diastolica > PRESION_DIASTOLICA_EXTREMA) {
+    causas.push(CAUSA_SOSPECHOSO.PRESION_EXTREMA);
+  }
+  if (sistolica - diastolica < PULSO_MINIMO_PLAUSIBLE) {
+    causas.push(CAUSA_SOSPECHOSO.PULSO_BAJO);
+  }
+  if (typeof frecuencia === 'number' &&
+      (frecuencia < FRECUENCIA_EXTREMA_BAJA || frecuencia > FRECUENCIA_EXTREMA_ALTA)) {
+    causas.push(CAUSA_SOSPECHOSO.FRECUENCIA_EXTREMA);
+  }
+  return causas;
+}
+
+/** ¿Hay al menos una causa de dato sospechoso? */
+function esDatoSospechoso(sistolica, diastolica, frecuencia) {
+  return causasDatoSospechoso(sistolica, diastolica, frecuencia).length > 0;
 }
 
 /**
  * Clasificación de una revisión ya guardada (para CONSULTAR y LISTAR).
  * @param {{sistolica:number, diastolica:number, frecuencia:number}|null} revision
- * @returns {null | {presion: object, frecuencia: object, crisis: boolean, datoSospechoso: boolean}}
+ * @returns {null | {presion: object, frecuencia: object, crisis: boolean,
+ *          datoSospechoso: boolean, causasSospechoso: string[]}}
  */
 function describirRevision(revision) {
   if (!revision) return null;
   const presion = clasificarPresion(revision.sistolica, revision.diastolica);
+  const causasSospechoso = causasDatoSospechoso(
+    revision.sistolica, revision.diastolica, revision.frecuencia
+  );
   return {
     presion,
     frecuencia: clasificarFrecuencia(revision.frecuencia),
     crisis: presion.nombre === 'Crisis hipertensiva',
-    datoSospechoso: esDatoSospechoso(revision.sistolica, revision.diastolica),
+    datoSospechoso: causasSospechoso.length > 0,
+    causasSospechoso,
   };
 }
 
+/**
+ * 7.4 — ¿La lectura debe marcarse con ALERTA (crisis), ADVERTENCIA (dato
+ * sospechoso), ambas, o ninguna? ADVERTENCIA sola es alcanzable con pulso
+ * bajo o frecuencia extrema sin crisis (ej. 120/115, 75).
+ */
 function determinarAvisoClasificacion(categoriaPresion, datoSospechoso) {
   const esCrisis = categoriaPresion.nombre === 'Crisis hipertensiva';
 
@@ -188,6 +222,8 @@ module.exports = {
   CATEGORIAS_PRESION,
   clasificarPresion,
   clasificarFrecuencia,
+  CAUSA_SOSPECHOSO,
+  causasDatoSospechoso,
   esDatoSospechoso,
   describirRevision,
   determinarAvisoClasificacion,
