@@ -77,9 +77,9 @@ function crearInterpreter({ pacientesRepo, ahora }) {
    * Procesa una instrucción y regresa tanto el resultado "programático"
    * (para la interfaz web / server.js) como las líneas ya formateadas
    * para la bitácora.
-   * @returns {{resultado: object, lineasBitacora: string[]}}
+   * @returns {Promise<{resultado: object, lineasBitacora: string[]}>}
    */
-  function procesarLinea(textoOriginal, numeroLinea) {
+  async function procesarLinea(textoOriginal, numeroLinea) {
     const afd = crearAFD();
 
     // --- 1 y 2. Léxico y sintáctico ---
@@ -110,16 +110,16 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     switch (arbol.tipo) {
       case 'REG':
         afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_REG);
-        return procesarRegistro(afd, arbol, numeroLinea);
+        return await procesarRegistro(afd, arbol, numeroLinea);
       case 'CON':
         afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_CON);
-        return procesarConsulta(afd, arbol, numeroLinea);
+        return await procesarConsulta(afd, arbol, numeroLinea);
       case 'LIS':
         afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_LIS);
-        return procesarListado(afd, numeroLinea);
+        return await procesarListado(afd, numeroLinea);
       default:
         afd.transitar(EVENTO.LEXICO_SINTACTICO_OK_LEC);
-        return procesarLectura(afd, arbol, numeroLinea);
+        return await procesarLectura(afd, arbol, numeroLinea);
     }
   }
 
@@ -144,9 +144,9 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     return { ...paciente, clasificacion: describirRevision(paciente.ultimaRevision) };
   }
 
-  function procesarConsulta(afd, arbol, numeroLinea) {
+  async function procesarConsulta(afd, arbol, numeroLinea) {
     const encabezado = `CONSULTAR ${arbol.id}`;
-    const validacion = validarConsulta(arbol, pacientesRepo.idsExistentes());
+    const validacion = validarConsulta(arbol, await pacientesRepo.idsExistentes());
 
     if (!validacion.ok) {
       afd.transitar(EVENTO.CONSULTA_PACIENTE_NO_ENCONTRADO);
@@ -158,7 +158,7 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     afd.transitar(EVENTO.CONSULTA_PACIENTE_ENCONTRADO);
 
     // listar() regresa copias: el resultado no comparte referencias con el repositorio.
-    const paciente = pacientesRepo.listar().find((p) => p.id === arbol.id);
+    const paciente = (await pacientesRepo.listar()).find((p) => p.id === arbol.id);
     return construirResultado({
       afd, numeroLinea, encabezado, instruccion: 'CONSULTA',
       detalles: [
@@ -169,9 +169,9 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     });
   }
 
-  function procesarListado(afd, numeroLinea) {
+  async function procesarListado(afd, numeroLinea) {
     afd.transitar(EVENTO.LISTADO_OK);
-    const pacientes = pacientesRepo.listar();
+    const pacientes = await pacientesRepo.listar();
     const detalles = pacientes.length === 0
       ? ['No hay pacientes registrados.']
       : [
@@ -187,9 +187,9 @@ function crearInterpreter({ pacientesRepo, ahora }) {
   }
 
   // --- Instrucción REGISTRAR ---
-  function procesarRegistro(afd, arbol, numeroLinea) {
+  async function procesarRegistro(afd, arbol, numeroLinea) {
     const encabezado = `REGISTRAR ${arbol.id}`;
-    const validacion = validarRegistro(arbol, pacientesRepo.idsExistentes());
+    const validacion = validarRegistro(arbol, await pacientesRepo.idsExistentes());
 
     if (!validacion.ok) {
       afd.transitar(EVENTO.SEMANTICA_REGISTRO_ERROR);
@@ -200,8 +200,21 @@ function crearInterpreter({ pacientesRepo, ahora }) {
       });
     }
 
+    try {
+      await pacientesRepo.agregar({ id: arbol.id, edad: arbol.edad, sexo: arbol.sexo, sangre: arbol.sangre });
+    } catch (err) {
+      if (err && err.name !== 'ErrorIdDuplicado') throw err;
+      // Carrera entre dos REGISTRAR del mismo ID: el repositorio SQL rechazó el
+      // duplicado (clave primaria). Mismo rechazo semántico que validarRegistro.
+      const duplicado = validarRegistro(arbol, new Set([arbol.id]));
+      afd.transitar(EVENTO.SEMANTICA_REGISTRO_ERROR);
+      return construirResultado({
+        afd, numeroLinea, encabezado, instruccion: 'REGISTRO',
+        detalles: [duplicado.mensaje],
+        tipo: 'SEMANTICO', mensaje: duplicado.mensaje,
+      });
+    }
     afd.transitar(EVENTO.SEMANTICA_REGISTRO_OK);
-    pacientesRepo.agregar({ id: arbol.id, edad: arbol.edad, sexo: arbol.sexo, sangre: arbol.sangre });
 
     return construirResultado({
       afd, numeroLinea, encabezado, instruccion: 'REGISTRO',
@@ -211,7 +224,7 @@ function crearInterpreter({ pacientesRepo, ahora }) {
   }
 
   // --- Instrucción de lectura ---
-  function procesarLectura(afd, arbol, numeroLinea) {
+  async function procesarLectura(afd, arbol, numeroLinea) {
     // Una vez que el parser construyó el árbol, usamos la forma abreviada
     // "id | sistólica/diastólica, frecuencia" en vez del texto crudo, tanto
     // si termina aceptada como si se rechaza más adelante (paciente no
@@ -219,7 +232,7 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     // sintácticamente válida.
     const encabezado = `${arbol.id} | ${arbol.sistolica}/${arbol.diastolica}, ${arbol.frecuencia}`;
 
-    const paciente = pacientesRepo.obtener(arbol.id);
+    const paciente = await pacientesRepo.obtener(arbol.id);
     if (!paciente) {
       afd.transitar(EVENTO.PACIENTE_NO_ENCONTRADO);
       const mensaje = `Error Semántico: paciente ${arbol.id} no encontrado.`;
@@ -260,7 +273,7 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     // Solo se actualiza el archivo hasta aquí: todo lo anterior a este
     // punto pudo haber terminado en rechazo, y un rechazo no debe tocar
     // pacientes.csv (sección 6.2 del documento de contexto).
-    pacientesRepo.actualizarRevision(arbol.id, {
+    await pacientesRepo.actualizarRevision(arbol.id, {
       fecha: fechaHoraLocal(ahora()),
       sistolica: arbol.sistolica,
       diastolica: arbol.diastolica,
