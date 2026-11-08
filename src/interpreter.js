@@ -272,7 +272,8 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     // Bloque de ALERTA ROJA: una línea de motivo por cada causa (crisis
     // hipertensiva y/o frecuencia severa) y, al final, UNA sola línea de
     // protocolo aunque haya varios motivos.
-    if (aviso === 'ALERTA' || aviso === 'ALERTA_Y_ADVERTENCIA') {
+    const hayAlerta = aviso === 'ALERTA' || aviso === 'ALERTA_Y_ADVERTENCIA';
+    if (hayAlerta) {
       if (categoriaPresion.nombre === 'Crisis hipertensiva') {
         detalles.push(`¡ALERTA ROJA! Crisis Hipertensiva detectada (${arbol.sistolica}/${arbol.diastolica} mmHg).`);
       }
@@ -314,7 +315,9 @@ function crearInterpreter({ pacientesRepo, ahora }) {
       }
     }
 
-    const recomendacion = RECOMENDACIONES_PRESION[categoriaPresion.nombre];
+    // Con cualquier ALERTA (crisis o frecuencia severa) no se da recomendación
+    // de texto: el protocolo de emergencia es lo único relevante.
+    const recomendacion = hayAlerta ? undefined : RECOMENDACIONES_PRESION[categoriaPresion.nombre];
     if (recomendacion) {
       detalles.push(`Recomendación: ${recomendacion}`);
     }
