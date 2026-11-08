@@ -1219,6 +1219,23 @@ main {
 .tabla-pacientes .sin-revision { font-size: var(--texto-xs); color: var(--tinta-suave); }
 .tabla-pacientes .etiquetas-clinicas { margin: var(--esp-1) 0 0; }
 
+/* Historial de revisiones (ficha de CONSULTAR): reutiliza .tabla-pacientes */
+.tabla-historial { min-width: 32rem; }
+.tabla-historial .col-fecha { font-weight: 400; white-space: nowrap; }
+.tabla-historial .col-num { white-space: nowrap; }
+/* "Más reciente": texto con contorno neutro (no depende del color; ni rojo ni ámbar) */
+.hist-reciente {
+  display: inline-block;
+  margin-top: var(--esp-1);
+  padding: 0 var(--esp-2);
+  border: 1px solid var(--borde-campo);
+  border-radius: var(--radio-sm);
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  color: var(--tinta);
+}
+.tabla-historial .col-fecha > .fecha { display: block; }
+
 /* LISTAR en pantallas angostas: cada paciente es una tarjeta apilada. Los
    roles ARIA (puestos en app.js) conservan la semántica de tabla; el
    encabezado de columnas se oculta solo visualmente. */
@@ -1282,6 +1299,10 @@ main {
   .tabla-pacientes .rev-valores { white-space: normal; }
   .tabla-pacientes td > span,
   .tabla-pacientes td > div { grid-column: 2; }
+  .tabla-historial { min-width: 0; }
+  .tabla-historial .col-fecha { white-space: normal; }
+  .tabla-historial .col-fecha > span { grid-column: 2; justify-self: start; }
+  .tabla-historial .col-num { white-space: normal; }
   /* Las etiquetas (texto sin cortar) usan el ancho completo de la tarjeta, no solo
      la segunda columna, para que "BRADICARDIA SEVERA" quepa a 320 px. */
   .tabla-pacientes td > .etiquetas-clinicas { grid-column: 1 / -1; margin: var(--esp-1) 0 0; }
@@ -1294,6 +1315,7 @@ main {
   .tabla-pacientes tbody td { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .tabla-pacientes td > span,
   .tabla-pacientes td > div { grid-column: 1; }
+  .tabla-historial .col-fecha > span { grid-column: 1; }
 }
 
 /* ---------- Adaptación mínima ---------- */

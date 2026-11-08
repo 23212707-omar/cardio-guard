@@ -341,17 +341,90 @@ function crearFichaPaciente(paciente) {
     if (causas) nodos.push(causas);
   }
 
+  const historial = crearHistorial(paciente.historial);
+  if (historial) nodos.push(historial);
+
   if (rev && c) {
     const p = el('p', 'ultimo-comparacion');
     p.appendChild(document.createTextNode('Última revisión: '));
     p.appendChild(el('span', 'fecha', rev.fecha));
-    p.appendChild(document.createTextNode('. Solo se conserva la última revisión.'));
+    // Con CSV solo existe la última revisión; con historial (SQL Server) no es cierto.
+    p.appendChild(document.createTextNode(historial ? '.' : '. Solo se conserva la última revisión.'));
     nodos.push(crearBloque('Revisión', p));
   } else {
     nodos.push(el('p', 'ultimo-nota', 'Sin revisiones registradas todavía.'));
   }
   nodos.push(el('p', 'nota-orientativa', 'Carácter orientativo, no es diagnóstico médico.'));
   return nodos;
+}
+
+// Rol ARIA explícito (y data-etiqueta para la vista de tarjetas) en las tablas
+// que se apilan en pantallas angostas: LISTAR y el historial de CONSULTAR.
+function conRol(nodo, rol, etiqueta) {
+  nodo.setAttribute('role', rol);
+  if (etiqueta) nodo.setAttribute('data-etiqueta', etiqueta);
+  return nodo;
+}
+
+const NBSP = ' ';
+
+// Historial de revisiones (solo con SQL Server). null si no existe (CSV) o está
+// vacío. La fecha se muestra tal cual llega; no se convierte con Date.
+function crearHistorial(historial) {
+  const revisiones = historial && Array.isArray(historial.revisiones) ? historial.revisiones : [];
+  if (revisiones.length === 0) return null;
+
+  const [hFecha, hPresion, hFrecuencia, hClas] = ['Fecha y hora', 'Presión', 'Frecuencia', 'Clasificación'];
+  const tabla = conRol(el('table', 'tabla-pacientes tabla-historial'), 'table');
+  tabla.appendChild(el('caption', 'solo-lector', 'Historial de revisiones, de la más reciente a la más antigua'));
+  const thead = conRol(el('thead'), 'rowgroup');
+  const filaTh = conRol(el('tr'), 'row');
+  thead.appendChild(filaTh);
+  for (const t of [hFecha, hPresion, hFrecuencia, hClas]) {
+    const th = conRol(el('th', null, t), 'columnheader');
+    th.scope = 'col';
+    filaTh.appendChild(th);
+  }
+  tabla.appendChild(thead);
+
+  const tbody = conRol(el('tbody'), 'rowgroup');
+  revisiones.forEach((rev, i) => {
+    const fila = conRol(el('tr'), 'row');
+    const celdaFecha = conRol(el('th', 'col-fecha'), 'rowheader', hFecha);
+    celdaFecha.scope = 'row';
+    celdaFecha.appendChild(el('span', 'fecha', rev.fecha));
+    if (i === 0) celdaFecha.appendChild(el('span', 'hist-reciente', 'Más reciente'));
+    fila.appendChild(celdaFecha);
+    fila.appendChild(conRol(el('td', 'col-num', `${rev.sistolica}/${rev.diastolica}${NBSP}mmHg`), 'cell', hPresion));
+    fila.appendChild(conRol(el('td', 'col-num', `${rev.frecuencia}${NBSP}lpm`), 'cell', hFrecuencia));
+
+    const c = rev.clasificacion;
+    const celdaClas = conRol(el('td', 'col-clas'), 'cell', hClas);
+    if (c && c.presion && c.frecuencia) {
+      celdaClas.appendChild(el('span', 'clas-linea', c.presion.nombre));
+      celdaClas.appendChild(el('span', 'clas-linea clas-fc', `FC: ${c.frecuencia.nombre}`));
+      const etiquetas = crearEtiquetasPaciente({ clasificacion: c });
+      if (etiquetas) celdaClas.appendChild(etiquetas);
+    } else {
+      celdaClas.appendChild(el('span', 'sin-revision', '—'));
+    }
+    fila.appendChild(celdaClas);
+    tbody.appendChild(fila);
+  });
+  tabla.appendChild(tbody);
+
+  const scroll = el('div', 'tabla-scroll');
+  scroll.tabIndex = 0;
+  scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', 'Tabla del historial de revisiones');
+  scroll.appendChild(tabla);
+
+  const hijos = [];
+  if (Number.isFinite(historial.total) && Number.isFinite(historial.mostradas) && historial.total > historial.mostradas) {
+    hijos.push(el('p', 'ultimo-nota', `Mostrando las ${historial.mostradas} más recientes de ${historial.total}`));
+  }
+  hijos.push(scroll);
+  return crearBloque('Historial de revisiones', ...hijos);
 }
 
 function irARegistrar() {
@@ -379,11 +452,6 @@ function crearTablaListado(resultado) {
   // data-etiqueta para mostrarla en la tarjeta.
   const [hID, hEdad, hSexo, hSangre, hRev, hClas] = ['ID', 'Edad', 'Sexo', 'Sangre', 'Última revisión', 'Clasificación'];
   const encabezados = [hID, hEdad, hSexo, hSangre, hRev, hClas];
-  const conRol = (nodo, rol, etiqueta) => {
-    nodo.setAttribute('role', rol);
-    if (etiqueta) nodo.setAttribute('data-etiqueta', etiqueta);
-    return nodo;
-  };
 
   const tabla = conRol(el('table', 'tabla-pacientes'), 'table');
   tabla.appendChild(el('caption', 'solo-lector', `${total} paciente(s) registrado(s)`));
@@ -587,7 +655,14 @@ function agregarTarjeta(resultado, lineasBitacora) {
 
   const info = infoInsignia(resultado.estado);
   const tipo = info ? info.tipo : 'otro';
-  const [encabezado, ...detalles] = lineasBitacora;
+  let [encabezado, ...detalles] = lineasBitacora;
+  // CONSULTAR con historial: la ficha ya muestra la tabla, así que las líneas de
+  // texto del historial (de "Historial de revisiones…" al final) no se repiten
+  // aquí ni se cuentan. La bitácora .txt las conserva; lineasBitacora no se altera.
+  if (resultado.instruccion === 'CONSULTA' && resultado.paciente && resultado.paciente.historial) {
+    const inicio = detalles.findIndex((l) => l.trim().startsWith('Historial de revisiones'));
+    if (inicio !== -1) detalles = detalles.slice(0, inicio);
+  }
 
   const tarjeta = el('article', claseParaEstado(resultado.estado));
   tarjeta.dataset.estado = tipo;
