@@ -61,6 +61,7 @@ class PacientesRepoSql {
   constructor(pool, { nombreBase } = {}) {
     this.pool = pool;
     this.nombreBase = nombreBase;
+    this.soportaHistorial = true; // el repositorio CSV no tiene esta propiedad: sin historial
   }
 
   async _ejecutar(consulta, parametros = []) {
@@ -120,27 +121,76 @@ class PacientesRepoSql {
     }
   }
 
-  /** Reemplaza la última revisión del paciente. Una sola sentencia UPDATE (atómica). */
+  /**
+   * Reemplaza la última revisión del paciente (UPDATE en pacientes) y agrega la lectura al
+   * historial (INSERT en revisiones), en UNA transacción: se guardan las dos o ninguna.
+   */
   async actualizarRevision(id, { fecha, sistolica, diastolica, frecuencia }) {
-    if (noCabe(id)) {
-      throw new Error(`No se puede actualizar la revisión de un paciente inexistente: ${id}`);
+    const inexistente = () =>
+      new Error(`No se puede actualizar la revisión de un paciente inexistente: ${id}`);
+    if (noCabe(id)) throw inexistente();
+
+    const tx = new sql.Transaction(this.pool);
+    let abierta = false;
+    let faltaPaciente = false;
+    try {
+      await tx.begin();
+      abierta = true;
+      const conParametros = (request) =>
+        request
+          .input('id', sql.VarChar(LONGITUD_MAXIMA_ID), id)
+          .input('fecha', sql.VarChar(16), fecha)
+          .input('sistolica', sql.Int, sistolica)
+          .input('diastolica', sql.Int, diastolica)
+          .input('frecuencia', sql.Int, frecuencia);
+
+      const r = await conParametros(new sql.Request(tx)).query(
+        `UPDATE pacientes
+            SET fecha_revision = CONVERT(datetime2(0), @fecha, 120),
+                sistolica = @sistolica, diastolica = @diastolica, frecuencia = @frecuencia
+          WHERE id = @id`
+      );
+      if (r.rowsAffected[0] === 0) {
+        faltaPaciente = true;
+        throw inexistente();
+      }
+      await conParametros(new sql.Request(tx)).query(
+        `INSERT INTO revisiones (paciente_id, fecha_revision, sistolica, diastolica, frecuencia)
+         VALUES (@id, CONVERT(datetime2(0), @fecha, 120), @sistolica, @diastolica, @frecuencia)`
+      );
+      await tx.commit();
+      abierta = false;
+    } catch (err) {
+      if (abierta) await tx.rollback().catch(() => {});
+      if (faltaPaciente) throw err;
+      throw new ErrorBaseDatos('Falló una consulta a la base de datos.', err);
     }
+  }
+
+  /**
+   * Las `limite` revisiones más recientes del paciente (la más reciente primero) y el total.
+   * Orden por id_revision (IDENTITY) para desempatar lecturas del mismo minuto.
+   * @returns {Promise<{total:number, revisiones:{fecha:string,sistolica:number,diastolica:number,frecuencia:number}[]}>}
+   */
+  async obtenerHistorial(id, limite) {
+    if (noCabe(id)) return { total: 0, revisiones: [] };
     const r = await this._ejecutar(
-      `UPDATE pacientes
-          SET fecha_revision = CONVERT(datetime2(0), @fecha, 120),
-              sistolica = @sistolica, diastolica = @diastolica, frecuencia = @frecuencia
-        WHERE id = @id`,
+      `SELECT COUNT(*) AS total FROM revisiones WHERE paciente_id = @id;
+       SELECT TOP (@limite) CONVERT(varchar(16), fecha_revision, 120) AS fecha,
+              sistolica, diastolica, frecuencia
+         FROM revisiones WHERE paciente_id = @id ORDER BY id_revision DESC`,
       [
         ['id', sql.VarChar(LONGITUD_MAXIMA_ID), id],
-        ['fecha', sql.VarChar(16), fecha],
-        ['sistolica', sql.Int, sistolica],
-        ['diastolica', sql.Int, diastolica],
-        ['frecuencia', sql.Int, frecuencia],
+        ['limite', sql.Int, limite],
       ]
     );
-    if (r.rowsAffected[0] === 0) {
-      throw new Error(`No se puede actualizar la revisión de un paciente inexistente: ${id}`);
-    }
+    const [totalSet, filas] = r.recordsets;
+    return {
+      total: totalSet[0].total,
+      revisiones: filas.map((f) => ({
+        fecha: f.fecha, sistolica: f.sistolica, diastolica: f.diastolica, frecuencia: f.frecuencia,
+      })),
+    };
   }
 
   async cerrar() {

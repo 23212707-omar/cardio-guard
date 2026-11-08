@@ -46,6 +46,9 @@ const RECOMENDACIONES_PRESION = {
   // La alerta por frecuencia severa tampoco lleva recomendación de texto.
 };
 
+// Cuántas revisiones recientes muestra CONSULTAR (solo con repositorio que soporta historial).
+const LIMITE_HISTORIAL = 10;
+
 const TEXTO_ESTADO = {
   ACEPTADO: 'Aceptado',
   ACEPTADO_CON_ALERTA: 'Aceptado con Alerta',
@@ -159,13 +162,30 @@ function crearInterpreter({ pacientesRepo, ahora }) {
 
     // listar() regresa copias: el resultado no comparte referencias con el repositorio.
     const paciente = (await pacientesRepo.listar()).find((p) => p.id === arbol.id);
+    const detalles = [
+      `${paciente.edad} años, ${paciente.sexo}, ${paciente.sangre}.`,
+      `Última revisión: ${resumenRevision(paciente.ultimaRevision)}.`,
+    ];
+    const pacienteSalida = conClasificacion(paciente);
+
+    // Historial: solo con repositorios que lo soportan (SQL Server). Con CSV no aparece.
+    if (pacientesRepo.soportaHistorial === true) {
+      const { total, revisiones } = await pacientesRepo.obtenerHistorial(paciente.id, LIMITE_HISTORIAL);
+      pacienteSalida.historial = {
+        total,
+        mostradas: revisiones.length,
+        revisiones: revisiones.map((rev) => ({ ...rev, clasificacion: describirRevision(rev) })),
+      };
+      if (revisiones.length > 0) {
+        detalles.push(`Historial de revisiones (mostrando ${revisiones.length} de ${total}):`);
+        for (const rev of revisiones) detalles.push(`- ${resumenRevision(rev)}`);
+      }
+    }
+
     return construirResultado({
       afd, numeroLinea, encabezado, instruccion: 'CONSULTA',
-      detalles: [
-        `${paciente.edad} años, ${paciente.sexo}, ${paciente.sangre}.`,
-        `Última revisión: ${resumenRevision(paciente.ultimaRevision)}.`,
-      ],
-      extra: { id: paciente.id, paciente: conClasificacion(paciente) },
+      detalles,
+      extra: { id: paciente.id, paciente: pacienteSalida },
     });
   }
 

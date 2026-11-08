@@ -42,10 +42,12 @@ PUERTO=4000 npm start
 
 ## Elegir dónde se guardan los pacientes (CSV o SQL Server)
 
-- Copia `.env.example` como `.env`. `REPOSITORIO=csv` (por defecto) usa `data/pacientes.csv`; `REPOSITORIO=sql` usa SQL Server Express (`SQLEXPRESS`, TCP 1433, autenticación mixta). Solo se guarda la última revisión de cada paciente.
+- Copia `.env.example` como `.env`. `REPOSITORIO=csv` (por defecto) usa `data/pacientes.csv`; `REPOSITORIO=sql` usa SQL Server Express (`SQLEXPRESS`, TCP 1433, autenticación mixta). `pacientes` guarda la última revisión de cada paciente.
 - Crear la base en SSMS: ejecuta `sql/crear_base.sql` y luego `sql/crear_usuario.sql` (cambia antes `CAMBIAR_ESTA_CONTRASENA`). El usuario `cardio_guard_app` solo lee y escribe datos.
 - En `.env`: `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` y, si hace falta, `DB_ENCRYPT` / `DB_TRUST_SERVER_CERTIFICATE`. El `.env` no se sube a git.
 - Si `REPOSITORIO=sql` y no hay conexión, el servidor avisa qué variable revisar y termina (no usa el CSV de respaldo). Al arrancar muestra el repositorio activo.
+- **Historial (solo SQL Server):** cada lectura aceptada se guarda además en la tabla `revisiones` y CONSULTAR muestra las 10 más recientes (campo `paciente.historial` y líneas "Historial de revisiones" en la bitácora). La comparación sigue siendo contra la última revisión; las lecturas rechazadas no se guardan; con CSV no hay historial.
+- **Base ya existente:** ejecuta de nuevo `sql/crear_base.sql` (agrega la tabla `revisiones` sin tocar lo demás; no necesita permisos nuevos para `cardio_guard_app`) y después `sql/migrar_historial.sql`, que copia la última revisión de cada paciente ya guardado al historial. Ambos se pueden correr varias veces sin duplicar datos.
 - `node tests/storage.sql.manual.js` se omite si no hay SQL Server. Para correrlo, define `DB_TEST_USER` y `DB_TEST_PASSWORD` en `.env`: ese usuario necesita permiso para **crear bases de datos** (`cardio_guard_app` no lo tiene). El test crea y borra su propia base `cardio_guard_test`; nunca toca `cardio_guard`.
 
 ## Estructura del proyecto
@@ -61,7 +63,7 @@ src/
     clasificacion.js        categorías de presión/frecuencia y comparación
   storage/
     pacientesRepo.js        lee y escribe pacientes.csv
-    pacientesRepoSql.js     pacientes en SQL Server (mssql)
+    pacientesRepoSql.js     pacientes e historial en SQL Server (mssql)
     seleccionarRepo.js      elige csv o sql según REPOSITORIO
     bitacoraRepo.js         crea y escribe la bitácora de cada ejecución
   interpreter.js             junta todo lo anterior, instrucción por instrucción

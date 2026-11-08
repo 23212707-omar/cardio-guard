@@ -26,3 +26,25 @@ BEGIN
     );
 END
 GO
+
+-- Historial: una fila por cada lectura ACEPTADA (solo valores crudos; las categorias
+-- y alertas se calculan al mostrarlas). pacientes conserva solo la ultima revision.
+IF OBJECT_ID(N'dbo.revisiones', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.revisiones (
+        id_revision    INT IDENTITY(1,1) NOT NULL,
+        paciente_id    VARCHAR(20)  NOT NULL,       -- misma longitud que pacientes.id
+        fecha_revision DATETIME2(0) NOT NULL,       -- hora local "YYYY-MM-DD HH:MM"
+        sistolica      INT          NOT NULL,
+        diastolica     INT          NOT NULL,
+        frecuencia     INT          NOT NULL,
+        CONSTRAINT PK_revisiones PRIMARY KEY (id_revision),
+        CONSTRAINT FK_revisiones_pacientes FOREIGN KEY (paciente_id) REFERENCES dbo.pacientes (id)
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'IX_revisiones_paciente' AND object_id = OBJECT_ID(N'dbo.revisiones'))
+    CREATE INDEX IX_revisiones_paciente ON dbo.revisiones (paciente_id, id_revision);
+GO
