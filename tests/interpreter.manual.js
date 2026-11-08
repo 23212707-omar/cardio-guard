@@ -76,6 +76,10 @@ check('P001 quedó con la lectura 118/76,75 (la segunda, no la primera 130/85)',
 check('P002 quedó con la lectura de alerta 190/125,110 (se guardó pese a la alerta)',
   /P002,58,F,A\+,2026-09-18 09:05,190,125,110/.test(csvFinal));
 
+check('Ejemplo de referencia (sección 9): 9 líneas, 5 aceptadas, 1 con alerta, 4 rechazadas (1 de sintaxis, 3 semánticas)',
+  lote.length === 9 && aceptadas === 5 && conAlerta === 1 && rechazadas === 4 &&
+  erroresSintaxis === 1 && erroresSemanticos === 3);
+
 // --- Marcador "^" en errores léxicos y sintácticos ---
 console.log('\n=== Marcador "^" en errores léxicos y sintácticos ===');
 const csvAntes = fs.readFileSync(rutaCsv, 'utf8');
@@ -210,4 +214,78 @@ console.log('\n=== Fecha/hora por instrucción y categorías en CONSULTAR/LISTAR
   const csvSinCambios = fs.readFileSync(rutaMixta, 'utf8');
   interp.procesarLinea('LISTAR', 7); interp.procesarLinea('CONSULTAR P001', 8);
   check('CONSULTAR/LISTAR no cambian el CSV', fs.readFileSync(rutaMixta, 'utf8') === csvSinCambios);
+}
+
+// --- Dato sospechoso ampliado (pulso bajo, frecuencia extrema) y rechazo sistólica <= diastólica ---
+console.log('\n=== Dato sospechoso: pulso, frecuencia y fronteras ===');
+{
+  const rutaSosp = path.join(carpetaTemp, 'sospechoso.csv');
+  fs.writeFileSync(rutaSosp,
+    'id,edad,sexo,sangre,fecha_revision,sistolica,diastolica,frecuencia\n' +
+    'P001,45,M,O+,2026-09-18 08:00,118,76,75\n' +
+    'P002,58,F,A+,,,,\n' +
+    'P003,30,F,B+,,,,\n' +
+    'P004,30,F,B+,,,,\n', 'utf8');
+  const interp = crearInterpreter({ pacientesRepo: crearPacientesRepo(rutaSosp), ahora });
+  const run = (t) => interp.procesarLinea(t, 1);
+  const sospLineas = (r) => r.lineasBitacora.filter((l) => l.trim().startsWith('Dato sospechoso:'));
+
+  const r120 = run('P001; 120/120, 75');
+  check('120/120, 75 -> rechazo semántico con el mensaje nuevo',
+    r120.resultado.estado === 'RECHAZADO' && r120.resultado.tipo === 'SEMANTICO' &&
+    r120.resultado.mensaje === 'Error Semántico: la sistólica (120) debe ser mayor que la diastólica (120).');
+  check('120/119, 75 -> ACEPTADO_CON_ADVERTENCIA (pulso 1)', run('P001; 120/119, 75').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/111, 75 -> ACEPTADO_CON_ADVERTENCIA (pulso 9)', run('P001; 120/111, 75').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  const r110 = run('P001; 120/110, 75');
+  check('120/110, 75 -> sin advertencia (pulso 10)',
+    !r110.resultado.estado.includes('ADVERTENCIA') && sospLineas(r110).length === 0);
+  check('120/80, 39 -> advertencia', run('P001; 120/80, 39').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 40 -> sin advertencia', !run('P001; 120/80, 40').resultado.estado.includes('ADVERTENCIA'));
+  check('120/80, 200 -> sin advertencia', !run('P001; 120/80, 200').resultado.estado.includes('ADVERTENCIA'));
+  check('120/80, 201 -> advertencia', run('P001; 120/80, 201').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 29 -> rechazo', run('P001; 120/80, 29').resultado.estado === 'RECHAZADO');
+  check('120/80, 30 -> advertencia', run('P001; 120/80, 30').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 220 -> advertencia', run('P001; 120/80, 220').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 221 -> rechazo', run('P001; 120/80, 221').resultado.estado === 'RECHAZADO');
+
+  const rPulso = run('P002; 120/115, 75');
+  console.log(rPulso.lineasBitacora.join('\n'));
+  check('120/115, 75 -> ACEPTADO_CON_ADVERTENCIA con línea de pulso (diferencia de 5 mmHg)',
+    rPulso.resultado.estado === 'ACEPTADO_CON_ADVERTENCIA' &&
+    sospLineas(rPulso).length === 1 &&
+    sospLineas(rPulso)[0].trim() === 'Dato sospechoso: presión de pulso muy baja (diferencia de 5 mmHg), verificar captura.');
+
+  const rTres = run('P003; 190/185, 210');
+  console.log(rTres.lineasBitacora.join('\n'));
+  const lt = sospLineas(rTres).map((l) => l.trim());
+  check('190/185, 210 -> ACEPTADO_CON_ALERTA_Y_ADVERTENCIA',
+    rTres.resultado.estado === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('190/185, 210 -> bitácora con las tres causas, una línea por causa',
+    lt.length === 3 &&
+    lt.includes('Dato sospechoso: presión de pulso muy baja (diferencia de 5 mmHg), verificar captura.') &&
+    lt.includes('Dato sospechoso: frecuencia cardíaca extrema (210 lpm), verificar captura.'));
+  check('190/185, 210 -> incluye la línea de presión extrema',
+    lt.includes('Dato sospechoso: valor fuera de rango fisiológico habitual, verificar captura (190/185 mmHg).'));
+
+  const rPres = run('P004; 260/110, 75');
+  check('260/110, 75 -> mantiene el texto de presión extrema',
+    sospLineas(rPres).length === 1 &&
+    sospLineas(rPres)[0].trim() === 'Dato sospechoso: valor fuera de rango fisiológico habitual, verificar captura (260/110 mmHg).');
+
+  // CONSULTAR / LISTAR: P002 (pulso 5) y una lectura sospechosa por frecuencia
+  run('P001; 120/80, 210');
+  const cp = run('CONSULTAR P002');
+  check('CONSULTAR (sospechoso por pulso): datoSospechoso true y causasSospechoso [PULSO_BAJO]',
+    cp.resultado.paciente.clasificacion.datoSospechoso === true &&
+    cp.resultado.paciente.clasificacion.causasSospechoso.join() === 'PULSO_BAJO' &&
+    cp.lineasBitacora.some((l) => l.includes('[DATO SOSPECHOSO]')));
+  const cf = run('CONSULTAR P001');
+  check('CONSULTAR (sospechoso por frecuencia): datoSospechoso true y causasSospechoso [FRECUENCIA_EXTREMA]',
+    cf.resultado.paciente.clasificacion.datoSospechoso === true &&
+    cf.resultado.paciente.clasificacion.causasSospechoso.join() === 'FRECUENCIA_EXTREMA');
+  const ls = run('LISTAR');
+  const porId = (id) => ls.resultado.pacientes.find((p) => p.id === id).clasificacion;
+  check('LISTAR: P002 (pulso) y P001 (frecuencia) con datoSospechoso y causas',
+    porId('P002').datoSospechoso && porId('P002').causasSospechoso.join() === 'PULSO_BAJO' &&
+    porId('P001').datoSospechoso && porId('P001').causasSospechoso.join() === 'FRECUENCIA_EXTREMA');
 }

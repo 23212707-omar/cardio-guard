@@ -20,7 +20,7 @@ console.log(validarRegistro({ id: 'P011', edad: 40, sexo: 'F', sangre: 'Z+' }, n
 console.log('\n=== validarLectura ===');
 
 console.log(validarLectura({ sistolica: 118, diastolica: 76, frecuencia: 75 }));
-console.log(validarLectura({ sistolica: 80, diastolica: 120, frecuencia: 75 }));  // diastólica > sistólica
+console.log(validarLectura({ sistolica: 80, diastolica: 120, frecuencia: 75 }));  // sistólica <= diastólica
 console.log(validarLectura({ sistolica: 0, diastolica: 76, frecuencia: 75 }));     // valor en cero
 console.log(validarLectura({ sistolica: 120, diastolica: 80, frecuencia: 250 }));  // frecuencia fuera de rango
 console.log(validarLectura({ sistolica: 260, diastolica: 70, frecuencia: 75 }));   // dato sospechoso (no se rechaza)
@@ -104,6 +104,45 @@ console.log('\n=== esDatoSospechoso / describirRevision ===');
   ok('251/100 sí', esDatoSospechoso(251, 100));
   ok('120/151 sí', esDatoSospechoso(120, 151));
   ok('describirRevision(null) = null', describirRevision(null) === null);
+
+  const { causasDatoSospechoso, CAUSA_SOSPECHOSO: C } = require('../src/semantics/clasificacion');
+  const causas = (s, d, f) => causasDatoSospechoso(s, d, f).join(',');
+  ok('causas: 260/110, 75 -> PRESION_EXTREMA', causas(260, 110, 75) === C.PRESION_EXTREMA);
+  ok('causas: 120/115, 75 -> PULSO_BAJO', causas(120, 115, 75) === C.PULSO_BAJO);
+  ok('causas: 120/80, 210 -> FRECUENCIA_EXTREMA', causas(120, 80, 210) === C.FRECUENCIA_EXTREMA);
+  ok('causas: 190/185, 210 -> las tres (diastólica 185 > 150)',
+    causas(190, 185, 210) === `${C.PRESION_EXTREMA},${C.PULSO_BAJO},${C.FRECUENCIA_EXTREMA}`);
+  ok('causas: 250/150, 75 -> ninguna', causas(250, 150, 75) === '');
+  ok('causas: 260/255, 210 -> las tres',
+    causas(260, 255, 210) === `${C.PRESION_EXTREMA},${C.PULSO_BAJO},${C.FRECUENCIA_EXTREMA}`);
+  ok('sin frecuencia (2 args) no evalúa la causa c', !esDatoSospechoso(120, 80) && causas(120, 80) === '');
+  ok('determinarAviso: 120/115 sin crisis -> ADVERTENCIA (alcanzable)',
+    determinarAvisoClasificacion(clasificarPresion(120, 115), esDatoSospechoso(120, 115, 75)) === 'ADVERTENCIA');
+
+  // Fronteras de validarLectura (pulso y frecuencia)
+  const val = (s, d, f) => validarLectura({ sistolica: s, diastolica: d, frecuencia: f });
+  const rech = (s, d, f) => !val(s, d, f).ok;
+  const adv = (s, d, f) => { const r = val(s, d, f); return r.ok && r.datoSospechoso; };
+  const sin = (s, d, f) => { const r = val(s, d, f); return r.ok && !r.datoSospechoso; };
+  ok('120/120, 75 -> rechazo semántico con mensaje claro',
+    rech(120, 120, 75) && val(120, 120, 75).mensaje === 'Error Semántico: la sistólica (120) debe ser mayor que la diastólica (120).');
+  ok('120/119, 75 -> advertencia (pulso 1)', adv(120, 119, 75));
+  ok('120/111, 75 -> advertencia (pulso 9)', adv(120, 111, 75));
+  ok('120/110, 75 -> sin advertencia (pulso 10)', sin(120, 110, 75));
+  ok('120/80, 39 -> advertencia', adv(120, 80, 39));
+  ok('120/80, 40 -> sin advertencia', sin(120, 80, 40));
+  ok('120/80, 200 -> sin advertencia', sin(120, 80, 200));
+  ok('120/80, 201 -> advertencia', adv(120, 80, 201));
+  ok('120/80, 29 -> rechazo', rech(120, 80, 29));
+  ok('120/80, 30 -> advertencia', adv(120, 80, 30));
+  ok('120/80, 220 -> advertencia', adv(120, 80, 220));
+  ok('120/80, 221 -> rechazo', rech(120, 80, 221));
+  const dp = describirRevision({ sistolica: 120, diastolica: 115, frecuencia: 75 });
+  ok('describirRevision 120/115, 75 -> datoSospechoso y causasSospechoso [PULSO_BAJO]',
+    dp.datoSospechoso === true && dp.causasSospechoso.join() === C.PULSO_BAJO);
+  const df = describirRevision({ sistolica: 120, diastolica: 80, frecuencia: 210 });
+  ok('describirRevision 120/80, 210 -> causasSospechoso [FRECUENCIA_EXTREMA]',
+    df.datoSospechoso === true && df.causasSospechoso.join() === C.FRECUENCIA_EXTREMA);
   const d = describirRevision({ sistolica: 260, diastolica: 70, frecuencia: 50 });
   ok('260/70, 50 lpm -> Crisis + sospechoso + Bradicardia',
     d.crisis && d.datoSospechoso && d.frecuencia.nombre === 'Bradicardia');
