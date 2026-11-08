@@ -83,6 +83,167 @@ async function borrarBasePrueba(admin) {
   throw ultimo;
 }
 
+/** Lee sql/migrar_historial.sql apuntando a la base de prueba y lo parte en lotes (GO). */
+function lotesMigrar() {
+  const texto = fs.readFileSync(path.join(__dirname, '..', 'sql', 'migrar_historial.sql'), 'utf8');
+  return texto
+    .replace(/\bcardio_guard\b/g, BASE_PRUEBA)
+    .split(/^\s*GO\s*$/im)
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+/** Historial de revisiones: tabla revisiones, transacción, obtenerHistorial, migración e intérprete. */
+async function pruebasHistorial(repo, base) {
+  console.log('\n=== Historial de revisiones (fase 3) ===');
+  const rev = (fecha, s = 120, d = 80, f = 70) => ({ fecha, sistolica: s, diastolica: d, frecuencia: f });
+  const contar = async (id) => (await repo.pool.request().input('id', sql.VarChar(20), id)
+    .query('SELECT COUNT(*) AS n FROM revisiones WHERE paciente_id = @id')).recordset[0].n;
+  const ddl = (texto) => repo.pool.request().batch(texto);
+
+  // --- vacío, orden, desempate, objetos nuevos ---
+  await repo.agregar({ id: 'H001', edad: 50, sexo: 'M', sangre: 'O+' });
+  const vacio = await repo.obtenerHistorial('H001', 10);
+  check('paciente sin revisiones: total 0 y lista vacía', vacio.total === 0 && vacio.revisiones.length === 0);
+  check('ID inexistente: total 0 y lista vacía', JSON.stringify(await repo.obtenerHistorial('H999', 10)) === '{"total":0,"revisiones":[]}');
+  check('ID largo: total 0 y lista vacía (sin enviarlo a SQL)',
+    JSON.stringify(await repo.obtenerHistorial("P001'; DROP TABLE pacientes;--", 10)) === '{"total":0,"revisiones":[]}');
+  check('el repositorio SQL declara soportaHistorial = true', repo.soportaHistorial === true);
+
+  await repo.actualizarRevision('H001', rev('2026-11-08 10:00', 110, 70, 60));
+  await repo.actualizarRevision('H001', rev('2026-11-08 10:05', 120, 80, 70));
+  await repo.actualizarRevision('H001', rev('2026-11-08 10:10', 130, 85, 80));
+  const h3 = await repo.obtenerHistorial('H001', 10);
+  check('3 revisiones: total 3, más reciente primero',
+    h3.total === 3 && h3.revisiones.map((r) => r.fecha).join() === '2026-11-08 10:10,2026-11-08 10:05,2026-11-08 10:00');
+  check('cada revisión trae solo fecha, sistolica, diastolica, frecuencia',
+    JSON.stringify(h3.revisiones[0]) === JSON.stringify(rev('2026-11-08 10:10', 130, 85, 80)));
+  check('la última revisión de pacientes sigue siendo la más reciente',
+    JSON.stringify((await repo.obtener('H001')).ultimaRevision) === JSON.stringify(rev('2026-11-08 10:10', 130, 85, 80)));
+  h3.revisiones[0].sistolica = 1;
+  h3.revisiones.pop();
+  const h3b = await repo.obtenerHistorial('H001', 10);
+  check('obtenerHistorial regresa objetos nuevos en cada llamada',
+    h3b.revisiones.length === 3 && h3b.revisiones[0].sistolica === 130 && h3b !== h3);
+
+  // --- límite ---
+  await repo.agregar({ id: 'H002', edad: 40, sexo: 'F', sangre: 'A+' });
+  for (let i = 0; i < 12; i += 1) {
+    await repo.actualizarRevision('H002', rev(`2026-11-08 11:${String(i).padStart(2, '0')}`, 100 + i, 70, 60 + i));
+  }
+  const h12 = await repo.obtenerHistorial('H002', 10);
+  check('12 revisiones y límite 10: total 12, 10 filas, de la 12.ª a la 3.ª',
+    h12.total === 12 && h12.revisiones.length === 10 &&
+    h12.revisiones[0].sistolica === 111 && h12.revisiones[9].sistolica === 102);
+
+  // --- desempate: misma fecha y hora ---
+  await repo.agregar({ id: 'H003', edad: 33, sexo: 'F', sangre: 'B+' });
+  for (const s of [101, 102, 103]) await repo.actualizarRevision('H003', rev('2026-11-08 12:00', s));
+  const mm = await repo.obtenerHistorial('H003', 10);
+  check('lecturas del mismo minuto: la última guardada va primero (id_revision)',
+    mm.revisiones.map((r) => r.sistolica).join() === '103,102,101');
+
+  // --- ID inexistente no inserta nada ---
+  const antesTotal = (await repo.pool.request().query('SELECT COUNT(*) AS n FROM revisiones')).recordset[0].n;
+  let errInex = null;
+  try { await repo.actualizarRevision('H999', rev('2026-11-08 12:00')); } catch (e) { errInex = e; }
+  const despuesTotal = (await repo.pool.request().query('SELECT COUNT(*) AS n FROM revisiones')).recordset[0].n;
+  check('actualizarRevision de ID inexistente: mismo error de siempre y no inserta nada',
+    errInex && errInex.message === 'No se puede actualizar la revisión de un paciente inexistente: H999' && antesTotal === despuesTotal);
+
+  // --- atomicidad: un CHECK temporal solo en la base de prueba hace fallar el INSERT ---
+  await repo.agregar({ id: 'H004', edad: 60, sexo: 'M', sangre: 'AB+' });
+  await repo.actualizarRevision('H004', rev('2026-11-08 13:00', 120, 80, 70));
+  try {
+    await ddl('ALTER TABLE dbo.revisiones ADD CONSTRAINT CK_prueba_atomicidad CHECK (sistolica <= 400)');
+    let errTx = null;
+    try { await repo.actualizarRevision('H004', rev('2026-11-08 13:05', 999, 80, 70)); } catch (e) { errTx = e; }
+    check('si el INSERT falla se lanza ErrorBaseDatos', errTx && errTx.name === 'ErrorBaseDatos');
+    check('atomicidad: el UPDATE de pacientes se revirtió (sigue la revisión de las 13:00)',
+      JSON.stringify((await repo.obtener('H004')).ultimaRevision) === JSON.stringify(rev('2026-11-08 13:00', 120, 80, 70)));
+    check('atomicidad: revisiones no ganó ninguna fila', (await contar('H004')) === 1);
+  } finally {
+    await ddl(`IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_prueba_atomicidad')
+               ALTER TABLE dbo.revisiones DROP CONSTRAINT CK_prueba_atomicidad`);
+  }
+  await repo.actualizarRevision('H004', rev('2026-11-08 13:10', 999, 80, 70));
+  check('restaurado el estado: ya se acepta de nuevo (CHECK quitado)', (await contar('H004')) === 2);
+
+  // --- migración: copia una vez, no duplica, respeta pacientes con historial ---
+  await repo.agregar({ id: 'H005', edad: 70, sexo: 'F', sangre: 'O-' });
+  await repo.agregar({ id: 'H006', edad: 71, sexo: 'F', sangre: 'O-' }); // sin revisión: no se copia
+  await repo.agregar({ id: 'H007', edad: 72, sexo: 'M', sangre: 'O-' });
+  await repo.pool.request().batch(
+    `UPDATE pacientes SET fecha_revision = '2026-10-01 08:30', sistolica = 150, diastolica = 95, frecuencia = 88 WHERE id = 'H005';
+     UPDATE pacientes SET fecha_revision = '2026-10-02 09:00', sistolica = 140, diastolica = 90, frecuencia = 80 WHERE id = 'H007';
+     INSERT INTO revisiones (paciente_id, fecha_revision, sistolica, diastolica, frecuencia)
+       VALUES ('H007', '2026-10-02 09:00', 140, 90, 80);`);
+  const totalAntes = (await repo.pool.request().query('SELECT COUNT(*) AS n FROM revisiones')).recordset[0].n;
+  for (let corrida = 1; corrida <= 2; corrida += 1) {
+    for (const lote of lotesMigrar()) await repo.pool.request().batch(lote);
+  }
+  const totalDespues = (await repo.pool.request().query('SELECT COUNT(*) AS n FROM revisiones')).recordset[0].n;
+  check('migrar_historial.sql corrido dos veces copia solo 1 fila (H005)', totalDespues === totalAntes + 1);
+  check('migración: H005 quedó con su última revisión; H006 sin historial; H007 sin duplicar',
+    JSON.stringify((await repo.obtenerHistorial('H005', 10)).revisiones) === JSON.stringify([rev('2026-10-01 08:30', 150, 95, 88)]) &&
+    (await contar('H006')) === 0 && (await contar('H007')) === 1);
+
+  // --- crear_base.sql sobre una base que ya existe no falla ---
+  for (const lote of lotesCrearBase()) await repo.pool.request().batch(lote.replace(/^USE\s+\w+;?/i, ''));
+  check('crear_base.sql corrido otra vez sobre la base existente no falla y conserva los datos', (await contar('H002')) === 12);
+
+  // --- intérprete contra SQL: REGISTRAR, 3 lecturas, CONSULTAR ---
+  let minuto = 0;
+  const ahora = () => new Date(2026, 10, 8, 14, minuto++);
+  const interp = crearInterpreter({ pacientesRepo: repo, ahora });
+  await interp.procesarLinea('REGISTRAR P100, 55, M, A+', 1);
+  await interp.procesarLinea('P100; 120/80, 70', 2);
+  await interp.procesarLinea('P100; 118/78, 151', 3);
+  await interp.procesarLinea('P100; 135/88, 76', 4);
+  const c = await interp.procesarLinea('CONSULTAR P100', 5);
+  console.log(c.lineasBitacora.join('\n'));
+  const hi = c.resultado.paciente.historial;
+  check('intérprete+SQL: historial con 3 revisiones, total 3, mostradas 3',
+    hi && hi.total === 3 && hi.mostradas === 3 && hi.revisiones.length === 3);
+  check('intérprete+SQL: orden más reciente primero (135, 118, 120)',
+    hi.revisiones.map((r) => r.sistolica).join() === '135,118,120' &&
+    hi.revisiones.map((r) => r.fecha).join() === '2026-11-08 14:02,2026-11-08 14:01,2026-11-08 14:00');
+  check('intérprete+SQL: clasificación completa y alertaFrecuencia en la de FC 151',
+    hi.revisiones[1].clasificacion.alertaFrecuencia === 'TAQUICARDIA_SEVERA' &&
+    hi.revisiones[0].clasificacion.alertaFrecuencia === null &&
+    JSON.stringify(Object.keys(hi.revisiones[1].clasificacion)) === JSON.stringify(Object.keys(c.resultado.paciente.clasificacion)));
+  check('intérprete+SQL: bitácora con encabezado "mostrando 3 de 3" y 3 líneas, la de 151 con su etiqueta',
+    c.lineasBitacora[3] === '   Historial de revisiones (mostrando 3 de 3):' && c.lineasBitacora.length === 7 &&
+    c.lineasBitacora[5].includes('151 lpm') && c.lineasBitacora[5].includes('[TAQUICARDIA SEVERA]') &&
+    !c.lineasBitacora[4].includes('[') && !c.lineasBitacora[6].includes('['));
+  await interp.procesarLinea('REGISTRAR P101, 20, F, A+', 6);
+  const sinHist = await interp.procesarLinea('CONSULTAR P101', 6);
+  check('intérprete+SQL: paciente sin revisiones -> historial vacío y sin líneas extra',
+    sinHist.resultado.paciente.historial.total === 0 && sinHist.lineasBitacora.length === 3);
+  const rechazada = await interp.procesarLinea('P100; 120/80, 5000', 7);
+  check('una lectura rechazada no se guarda en el historial',
+    rechazada.resultado.estado === 'RECHAZADO' && (await contar('P100')) === 3);
+
+  // --- fallo de SQL al leer el historial: ErrorBaseDatos (el servidor lo vuelve 503 genérico) ---
+  try {
+    await ddl("EXEC sp_rename 'dbo.revisiones', 'revisiones_x'");
+    let errLeer = null;
+    try { await interp.procesarLinea('CONSULTAR P100', 8); } catch (e) { errLeer = e; }
+    check('CONSULTAR con la tabla revisiones inaccesible lanza ErrorBaseDatos (503 en el servidor)',
+      errLeer && errLeer.name === 'ErrorBaseDatos' && !/revisiones/.test(errLeer.message));
+    let errGuardar = null;
+    try { await interp.procesarLinea('P100; 120/80, 70', 9); } catch (e) { errGuardar = e; }
+    check('una lectura con la tabla revisiones inaccesible lanza ErrorBaseDatos',
+      errGuardar && errGuardar.name === 'ErrorBaseDatos');
+    check('y no deja la última revisión de pacientes a medias (transacción revertida)',
+      (await repo.obtener('P100')).ultimaRevision.sistolica === 135);
+  } finally {
+    await ddl(`IF OBJECT_ID(N'dbo.revisiones_x', N'U') IS NOT NULL AND OBJECT_ID(N'dbo.revisiones', N'U') IS NULL
+               EXEC sp_rename 'dbo.revisiones_x', 'revisiones'`);
+  }
+  check('tabla revisiones restaurada', (await contar('P100')) === 3);
+}
+
 async function main() {
   console.log('=== pacientesRepoSql ===');
   if (!env.DB_SERVER || !env.DB_TEST_USER || !env.DB_TEST_PASSWORD) {
@@ -236,6 +397,8 @@ async function main() {
     check('el rechazo es el mismo de ID duplicado (tipo SEMANTICO, mismo texto)',
       rech.resultado.tipo === 'SEMANTICO' && rech.resultado.mensaje === msg && rech.lineasBitacora[1] === `   ${msg}`);
     check('sigue habiendo un solo P050', (await repo.listar()).filter((p) => p.id === 'P050').length === 1);
+
+    await pruebasHistorial(repo, base);
   } catch (err) {
     // Una verificación (o un paso) lanzó una excepción: mostrar el error técnico original.
     fallas += 1;

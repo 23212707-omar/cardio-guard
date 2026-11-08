@@ -137,6 +137,12 @@ check('CONSULTAR P001: aceptado, instruccion CONSULTA, recorrido AFD',
 check('CONSULTAR P001: muestra la última revisión 118/76 (la segunda lectura)',
   conOk.lineasBitacora.some((l) => l.includes('118/76 mmHg, 75 lpm (2026-09-18 09:05) — Óptima, FC Normal')));
 
+check('CONSULTAR con CSV: no trae el campo historial y el texto no cambió (solo 3 líneas)',
+  !('historial' in conOk.resultado.paciente) && conOk.lineasBitacora.length === 3 &&
+  conOk.lineasBitacora[1] === '   45 años, M, O+.' &&
+  conOk.lineasBitacora[2] === '   Última revisión: 118/76 mmHg, 75 lpm (2026-09-18 09:05) — Óptima, FC Normal.' &&
+  pacientesRepo.soportaHistorial === undefined);
+
 const conNo = await interpreter.procesarLinea('CONSULTAR P009', 11);
 console.log(conNo.lineasBitacora.join('\n'));
 check('CONSULTAR P009: rechazo semántico, sin ^',
@@ -407,6 +413,51 @@ console.log('\n=== ID demasiado largo ===');
   const csvDespues = fs.readFileSync(rutaLargo, 'utf8');
   check('los rechazos por ID largo no cambian el CSV (solo se agregó el ID de 20)',
     csvDespues === csvAntesLargo + `${id20},40,F,A+,,,,\n`);
+}
+
+// --- Historial en CONSULTAR con un repositorio falso (sin SQL Server) ---
+console.log('\n=== CONSULTAR con historial (repositorio falso en memoria) ===');
+{
+  const pac = {
+    id: 'P001', edad: 45, sexo: 'M', sangre: 'O+',
+    ultimaRevision: { fecha: '2026-11-08 12:02', sistolica: 118, diastolica: 76, frecuencia: 151 },
+  };
+  let limitePedido = null;
+  const falso = {
+    soportaHistorial: true,
+    idsExistentes: async () => new Set(['P001', 'P002']),
+    listar: async () => [{ ...pac }, { id: 'P002', edad: 30, sexo: 'F', sangre: 'A+', ultimaRevision: null }],
+    obtenerHistorial: async (id, limite) => {
+      limitePedido = limite;
+      return id !== 'P001' ? { total: 0, revisiones: [] } : {
+        total: 12,
+        revisiones: [
+          { fecha: '2026-11-08 12:02', sistolica: 118, diastolica: 76, frecuencia: 151 },
+          { fecha: '2026-11-08 12:01', sistolica: 130, diastolica: 85, frecuencia: 72 },
+        ],
+      };
+    },
+  };
+  const interp = crearInterpreter({ pacientesRepo: falso, ahora });
+  const h = await interp.procesarLinea('CONSULTAR P001', 1);
+  console.log(h.lineasBitacora.join('\n'));
+  const hist = h.resultado.paciente.historial;
+  check('historial: límite pedido = 10, total 12, mostradas 2',
+    limitePedido === 10 && hist.total === 12 && hist.mostradas === 2 && hist.revisiones.length === 2);
+  check('historial: clasificación con la misma forma que paciente.clasificacion',
+    JSON.stringify(Object.keys(hist.revisiones[0].clasificacion)) ===
+      JSON.stringify(Object.keys(h.resultado.paciente.clasificacion)) &&
+    hist.revisiones[0].clasificacion.alertaFrecuencia !== null && hist.revisiones[1].clasificacion.alertaFrecuencia === null);
+  check('bitácora: líneas actuales intactas y, al final, el encabezado y una línea por revisión',
+    h.lineasBitacora.length === 6 &&
+    h.lineasBitacora[1] === '   45 años, M, O+.' &&
+    h.lineasBitacora[3] === '   Historial de revisiones (mostrando 2 de 12):' &&
+    h.lineasBitacora[4].includes('2026-11-08 12:02') && h.lineasBitacora[4].includes('[TAQUICARDIA SEVERA]') &&
+    h.lineasBitacora[5].includes('2026-11-08 12:01') && !h.lineasBitacora[5].includes('['));
+  const sin = await interp.procesarLinea('CONSULTAR P002', 2);
+  check('paciente sin revisiones: historial vacío y sin líneas de historial',
+    sin.resultado.paciente.historial.total === 0 && sin.resultado.paciente.historial.mostradas === 0 &&
+    sin.lineasBitacora.length === 3);
 }
 })().catch((err) => {
   console.error(err);
