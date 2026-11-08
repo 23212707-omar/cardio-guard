@@ -8,8 +8,8 @@
  * guía AHA/ACC 2017, se cambió por decisión del equipo) y de frecuencia
  * cardíaca, el criterio de cambio
  * positivo/negativo contra la última revisión, y la decisión de si una
- * lectura debe mostrarse como ALERTA (crisis), ADVERTENCIA (dato
- * sospechoso) o ambas a la vez.
+ * lectura debe mostrarse como ALERTA (crisis hipertensiva o frecuencia
+ * cardíaca severa), ADVERTENCIA (dato sospechoso) o ambas a la vez.
  *
  * Este módulo no conoce al AFD ni a sus EVENTO; regresa resultados en
  * texto plano (NORMAL / ALERTA / ADVERTENCIA / ALERTA_Y_ADVERTENCIA) para
@@ -28,6 +28,21 @@ const PULSO_MINIMO_PLAUSIBLE = 10;
 // mayor que 220 ya se rechaza en validarLectura.js.
 const FRECUENCIA_EXTREMA_BAJA = 40;
 const FRECUENCIA_EXTREMA_ALTA = 200;
+
+// --- Umbrales de ALERTA por frecuencia cardíaca severa ---
+// Son umbrales de referencia elegidos por el equipo, de carácter
+// orientativo (no son diagnóstico médico). La lectura se acepta y se guarda
+// igual, pero queda con ALERTA si la frecuencia (lpm) es:
+//   < FRECUENCIA_ALERTA_BAJA  -> bradicardia severa
+//   > FRECUENCIA_ALERTA_ALTA  -> taquicardia severa
+const FRECUENCIA_ALERTA_BAJA = 40;
+const FRECUENCIA_ALERTA_ALTA = 150;
+
+// Códigos de las alertas por frecuencia.
+const ALERTA_FRECUENCIA = {
+  BRADICARDIA_SEVERA: 'BRADICARDIA_SEVERA',
+  TAQUICARDIA_SEVERA: 'TAQUICARDIA_SEVERA',
+};
 
 // Códigos de las causas de dato sospechoso.
 const CAUSA_SOSPECHOSO = {
@@ -115,6 +130,17 @@ function clasificarFrecuencia(frecuencia) {
 }
 
 /**
+ * Alerta por frecuencia cardíaca severa: código de ALERTA_FRECUENCIA o null
+ * (también null si `frecuencia` no es un número).
+ */
+function alertaFrecuencia(frecuencia) {
+  if (typeof frecuencia !== 'number' || Number.isNaN(frecuencia)) return null;
+  if (frecuencia < FRECUENCIA_ALERTA_BAJA) return ALERTA_FRECUENCIA.BRADICARDIA_SEVERA;
+  if (frecuencia > FRECUENCIA_ALERTA_ALTA) return ALERTA_FRECUENCIA.TAQUICARDIA_SEVERA;
+  return null;
+}
+
+/**
  * 7.4 — Causas por las que una lectura es dato sospechoso (arreglo de
  * códigos CAUSA_SOSPECHOSO, vacío si no hay ninguna). Única definición de
  * los umbrales: la usan validarLectura.js y la descripción de revisiones
@@ -143,7 +169,10 @@ function esDatoSospechoso(sistolica, diastolica, frecuencia) {
 /**
  * Clasificación de una revisión ya guardada (para CONSULTAR y LISTAR).
  * @param {{sistolica:number, diastolica:number, frecuencia:number}|null} revision
+ * `crisis` significa solo "crisis hipertensiva de presión"; la alerta por
+ * frecuencia va aparte en `alertaFrecuencia` (código o null).
  * @returns {null | {presion: object, frecuencia: object, crisis: boolean,
+ *          alertaFrecuencia: string|null,
  *          datoSospechoso: boolean, causasSospechoso: string[]}}
  */
 function describirRevision(revision) {
@@ -156,21 +185,23 @@ function describirRevision(revision) {
     presion,
     frecuencia: clasificarFrecuencia(revision.frecuencia),
     crisis: presion.nombre === 'Crisis hipertensiva',
+    alertaFrecuencia: alertaFrecuencia(revision.frecuencia),
     datoSospechoso: causasSospechoso.length > 0,
     causasSospechoso,
   };
 }
 
 /**
- * 7.4 — ¿La lectura debe marcarse con ALERTA (crisis), ADVERTENCIA (dato
- * sospechoso), ambas, o ninguna? ADVERTENCIA sola es alcanzable con pulso
- * bajo o frecuencia extrema sin crisis (ej. 120/115, 75).
+ * 7.4 — ¿La lectura debe marcarse con ALERTA (crisis hipertensiva o alerta
+ * de frecuencia), ADVERTENCIA (dato sospechoso), ambas, o ninguna?
+ * `alertaFrec` es opcional (resultado de alertaFrecuencia()). ADVERTENCIA
+ * sola es alcanzable con pulso bajo (ej. 120/115, 75).
  */
-function determinarAvisoClasificacion(categoriaPresion, datoSospechoso) {
-  const esCrisis = categoriaPresion.nombre === 'Crisis hipertensiva';
+function determinarAvisoClasificacion(categoriaPresion, datoSospechoso, alertaFrec = null) {
+  const esAlerta = categoriaPresion.nombre === 'Crisis hipertensiva' || Boolean(alertaFrec);
 
-  if (esCrisis && datoSospechoso) return 'ALERTA_Y_ADVERTENCIA';
-  if (esCrisis) return 'ALERTA';
+  if (esAlerta && datoSospechoso) return 'ALERTA_Y_ADVERTENCIA';
+  if (esAlerta) return 'ALERTA';
   if (datoSospechoso) return 'ADVERTENCIA';
   return 'NORMAL';
 }
@@ -222,6 +253,10 @@ module.exports = {
   CATEGORIAS_PRESION,
   clasificarPresion,
   clasificarFrecuencia,
+  FRECUENCIA_ALERTA_BAJA,
+  FRECUENCIA_ALERTA_ALTA,
+  ALERTA_FRECUENCIA,
+  alertaFrecuencia,
   CAUSA_SOSPECHOSO,
   causasDatoSospechoso,
   esDatoSospechoso,

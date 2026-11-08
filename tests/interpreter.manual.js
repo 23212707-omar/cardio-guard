@@ -239,13 +239,13 @@ console.log('\n=== Dato sospechoso: pulso, frecuencia y fronteras ===');
   const r110 = run('P001; 120/110, 75');
   check('120/110, 75 -> sin advertencia (pulso 10)',
     !r110.resultado.estado.includes('ADVERTENCIA') && sospLineas(r110).length === 0);
-  check('120/80, 39 -> advertencia', run('P001; 120/80, 39').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 39 -> alerta y advertencia', run('P001; 120/80, 39').resultado.estado === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
   check('120/80, 40 -> sin advertencia', !run('P001; 120/80, 40').resultado.estado.includes('ADVERTENCIA'));
-  check('120/80, 200 -> sin advertencia', !run('P001; 120/80, 200').resultado.estado.includes('ADVERTENCIA'));
-  check('120/80, 201 -> advertencia', run('P001; 120/80, 201').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 200 -> sin advertencia (solo alerta)', !run('P001; 120/80, 200').resultado.estado.includes('ADVERTENCIA'));
+  check('120/80, 201 -> alerta y advertencia', run('P001; 120/80, 201').resultado.estado === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
   check('120/80, 29 -> rechazo', run('P001; 120/80, 29').resultado.estado === 'RECHAZADO');
-  check('120/80, 30 -> advertencia', run('P001; 120/80, 30').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
-  check('120/80, 220 -> advertencia', run('P001; 120/80, 220').resultado.estado === 'ACEPTADO_CON_ADVERTENCIA');
+  check('120/80, 30 -> alerta y advertencia', run('P001; 120/80, 30').resultado.estado === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('120/80, 220 -> alerta y advertencia', run('P001; 120/80, 220').resultado.estado === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
   check('120/80, 221 -> rechazo', run('P001; 120/80, 221').resultado.estado === 'RECHAZADO');
 
   const rPulso = run('P002; 120/115, 75');
@@ -288,4 +288,82 @@ console.log('\n=== Dato sospechoso: pulso, frecuencia y fronteras ===');
   check('LISTAR: P002 (pulso) y P001 (frecuencia) con datoSospechoso y causas',
     porId('P002').datoSospechoso && porId('P002').causasSospechoso.join() === 'PULSO_BAJO' &&
     porId('P001').datoSospechoso && porId('P001').causasSospechoso.join() === 'FRECUENCIA_EXTREMA');
+}
+
+// --- ALERTA por frecuencia cardíaca severa (< 40 bradicardia, > 150 taquicardia) ---
+console.log('\n=== ALERTA por frecuencia severa ===');
+{
+  const rutaFrec = path.join(carpetaTemp, 'frecuencia.csv');
+  fs.writeFileSync(rutaFrec,
+    'id,edad,sexo,sangre,fecha_revision,sistolica,diastolica,frecuencia\n' +
+    'P001,45,M,O+,,,,\n' +
+    'P002,58,F,A+,,,,\n' +
+    'P003,30,F,B+,,,,\n' +
+    'P004,30,F,B+,,,,\n', 'utf8');
+  const interp = crearInterpreter({ pacientesRepo: crearPacientesRepo(rutaFrec), ahora });
+  const run = (t) => interp.procesarLinea(t, 1);
+  const estado = (t) => run(t).resultado.estado;
+  const lineasCon = (r, texto) => r.lineasBitacora.filter((l) => l.includes(texto));
+  const PROTOCOLO = 'Disparar protocolo de emergencia médica inmediata.';
+
+  check('120/80, 40 -> ACEPTADO (nada)', estado('P001; 120/80, 40') === 'ACEPTADO');
+  check('120/80, 39 -> ACEPTADO_CON_ALERTA_Y_ADVERTENCIA', estado('P001; 120/80, 39') === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('120/80, 30 -> ACEPTADO_CON_ALERTA_Y_ADVERTENCIA', estado('P001; 120/80, 30') === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('120/80, 29 -> rechazo', estado('P001; 120/80, 29') === 'RECHAZADO');
+  check('120/80, 150 -> sin alerta', estado('P001; 120/80, 150') === 'ACEPTADO');
+  check('120/80, 151 -> ACEPTADO_CON_ALERTA solo', estado('P001; 120/80, 151') === 'ACEPTADO_CON_ALERTA');
+  check('120/80, 200 -> ACEPTADO_CON_ALERTA solo', estado('P001; 120/80, 200') === 'ACEPTADO_CON_ALERTA');
+  check('120/80, 201 -> ACEPTADO_CON_ALERTA_Y_ADVERTENCIA', estado('P001; 120/80, 201') === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('120/80, 220 -> ACEPTADO_CON_ALERTA_Y_ADVERTENCIA', estado('P001; 120/80, 220') === 'ACEPTADO_CON_ALERTA_Y_ADVERTENCIA');
+  check('120/80, 221 -> rechazo', estado('P001; 120/80, 221') === 'RECHAZADO');
+
+  const r160 = run('P001; 120/80, 160');
+  console.log(r160.lineasBitacora.join('\n'));
+  check('120/80, 160 -> ACEPTADO_CON_ALERTA con la línea de taquicardia severa',
+    r160.resultado.estado === 'ACEPTADO_CON_ALERTA' &&
+    r160.lineasBitacora.some((l) => l.trim() === '¡ALERTA ROJA! Taquicardia severa detectada (160 lpm).'));
+  check('120/80, 160 -> sin líneas de crisis hipertensiva y alertaFrecuencia en el resultado',
+    lineasCon(r160, 'Crisis').length === 0 && r160.resultado.alertaFrecuencia === 'TAQUICARDIA_SEVERA');
+  check('120/80, 160 -> una línea de protocolo', lineasCon(r160, PROTOCOLO).length === 1);
+
+  const r35 = run('P001; 120/80, 35');
+  check('120/80, 35 -> línea de bradicardia severa y alertaFrecuencia BRADICARDIA_SEVERA',
+    r35.lineasBitacora.some((l) => l.trim() === '¡ALERTA ROJA! Bradicardia severa detectada (35 lpm).') &&
+    r35.resultado.alertaFrecuencia === 'BRADICARDIA_SEVERA');
+  check('120/80, 100 -> alertaFrecuencia null', run('P001; 120/80, 100').resultado.alertaFrecuencia === null);
+
+  const rAmbas = run('P002; 190/125, 160');
+  console.log(rAmbas.lineasBitacora.join('\n'));
+  check('190/125, 160 -> ACEPTADO_CON_ALERTA',
+    rAmbas.resultado.estado === 'ACEPTADO_CON_ALERTA');
+  check('190/125, 160 -> las dos líneas de motivo (crisis y taquicardia)',
+    rAmbas.lineasBitacora.some((l) => l.trim() === '¡ALERTA ROJA! Crisis Hipertensiva detectada (190/125 mmHg).') &&
+    rAmbas.lineasBitacora.some((l) => l.trim() === '¡ALERTA ROJA! Taquicardia severa detectada (160 lpm).'));
+  check('190/125, 160 -> la línea de protocolo aparece 1 vez',
+    lineasCon(rAmbas, PROTOCOLO).length === 1);
+  check('Solo crisis (190/125, 75): protocolo 1 vez y sin línea de frecuencia',
+    lineasCon(run('P002; 190/125, 75'), PROTOCOLO).length === 1 &&
+    lineasCon(run('P002; 190/125, 75'), 'severa').length === 0);
+
+  check('120/115, 75 -> ACEPTADO_CON_ADVERTENCIA solo (pulso bajo)',
+    estado('P003; 120/115, 75') === 'ACEPTADO_CON_ADVERTENCIA');
+
+  // CONSULTAR y LISTAR de pacientes con revisión de frecuencia severa
+  run('P003; 120/80, 160');
+  run('P004; 120/80, 35');
+  const cT = run('CONSULTAR P003');
+  check('CONSULTAR (taquicardia severa): alertaFrecuencia, crisis false y etiqueta',
+    cT.resultado.paciente.clasificacion.alertaFrecuencia === 'TAQUICARDIA_SEVERA' &&
+    cT.resultado.paciente.clasificacion.crisis === false &&
+    cT.lineasBitacora.some((l) => l.includes('[TAQUICARDIA SEVERA]')));
+  const cB = run('CONSULTAR P004');
+  check('CONSULTAR (bradicardia severa): alertaFrecuencia y etiqueta',
+    cB.resultado.paciente.clasificacion.alertaFrecuencia === 'BRADICARDIA_SEVERA' &&
+    cB.lineasBitacora.some((l) => l.includes('[BRADICARDIA SEVERA]')));
+  const lF = run('LISTAR');
+  const filaF = (id) => lF.lineasBitacora.find((l) => l.trim().startsWith(id));
+  const claseF = (id) => lF.resultado.pacientes.find((p) => p.id === id).clasificacion;
+  check('LISTAR: P003 y P004 con alertaFrecuencia y su etiqueta',
+    claseF('P003').alertaFrecuencia === 'TAQUICARDIA_SEVERA' && filaF('P003').includes('[TAQUICARDIA SEVERA]') &&
+    claseF('P004').alertaFrecuencia === 'BRADICARDIA_SEVERA' && filaF('P004').includes('[BRADICARDIA SEVERA]'));
 }
