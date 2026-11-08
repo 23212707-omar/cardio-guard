@@ -33,13 +33,44 @@
   src: url("fonts/IBMPlexMono-400.woff2") format("woff2");
 }
 
+/* Respaldos con métricas ajustadas a IBM Plex (evitan el salto de diseño
+   mientras cargan los woff2). Valores calculados de hhea/unitsPerEm y del
+   ancho promedio de caracteres (texto real de las páginas) frente a Arial,
+   Arial Bold y Courier New. */
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  font-weight: 400 500;
+  src: local("Arial"), local("ArialMT");
+  size-adjust: 99.8%;
+  ascent-override: 102.7%;
+  descent-override: 27.55%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  font-weight: 600 700;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  size-adjust: 96.55%;
+  ascent-override: 106.16%;
+  descent-override: 28.48%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "IBM Plex Mono Fallback";
+  src: local("Courier New"), local("CourierNewPSMT");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+
 /* ---------- Tokens ---------- */
 :root {
   color-scheme: light dark;
 
   /* Tipografía: respaldo del sistema si la fuente no carga */
-  --fuente-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --fuente-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace;
+  --fuente-texto: "IBM Plex Sans", "IBM Plex Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fuente-mono: "IBM Plex Mono", "IBM Plex Mono Fallback", ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace;
 
   --texto-xs: 0.8125rem;
   --texto-sm: 0.875rem;
@@ -63,6 +94,11 @@
   --sombra-panel: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04);
 
   --ancho-contenido: 46rem;
+
+  /* Movimiento: entradas cortas y sutiles (solo opacity y transform) */
+  --mov-dur: 180ms;
+  --mov-curva: cubic-bezier(0.2, 0, 0, 1);
+  --mov-desp: 5px;
 
   /* Superficies y texto (modo claro) */
   --fondo: #f4f7f8;
@@ -318,6 +354,18 @@ main {
 }
 
 [hidden] { display: none !important; }
+
+/* Entrada del panel de la pestaña (solo entrada, sin salida). Al quitar
+   `hidden` el panel pasa de display:none a visible y la animación se dispara.
+   La clase la pone app.js en el primer cambio de pestaña, así el panel activo
+   al cargar la página no se anima. */
+.capturas-animadas [role="tabpanel"]:not([hidden]) {
+  animation: entra-panel var(--mov-dur) var(--mov-curva);
+}
+
+@keyframes entra-panel {
+  from { opacity: 0; transform: translateY(var(--mov-desp)); }
+}
 
 .panel-nota {
   margin: 0;
@@ -1373,6 +1421,53 @@ main {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+
+  /* Las pseudo-elementos de la transición entre páginas no los cubre el `*`
+     (y la transición ni se activa: ver @view-transition más abajo). */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ---------- Transición entre Inicio y Acerca de ---------- */
+/* Sin soporte del navegador se ignora: no hay animación ni errores. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+
+/* Cabecera y pie quietos: solo el contenido hace el fundido. */
+.cabecera { view-transition-name: cabecera; }
+.pie { view-transition-name: pie; }
+
+::view-transition-old(root) {
+  animation: salida-pagina var(--mov-dur) var(--mov-curva) both;
+}
+
+::view-transition-new(root) {
+  animation: entrada-pagina var(--mov-dur) var(--mov-curva) both;
+}
+
+@keyframes salida-pagina { to { opacity: 0; } }
+@keyframes entrada-pagina { from { opacity: 0; } }
+
+/* Capa vieja oculta y capa nueva sin animar ni mezclar (plus-lighter): así el
+   texto no se ve doble ni sobreexpuesto; el subtítulo cambia al instante. */
+::view-transition-group(cabecera),
+::view-transition-group(pie) {
+  animation: none;
+}
+
+::view-transition-old(cabecera),
+::view-transition-old(pie) {
+  display: none;
+}
+
+::view-transition-new(cabecera),
+::view-transition-new(pie) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 /* ---------- Navegación y pantalla «Acerca de» (estática) ---------- */
