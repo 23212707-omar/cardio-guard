@@ -817,6 +817,8 @@ function limpiarError() {
 
 function activarPestana(nombre, enfocar) {
   capturaActiva = nombre;
+  // Solo se llama por interacción (nunca al cargar): desde aquí los paneles animan su entrada.
+  formulario.classList.add('capturas-animadas');
   for (const tab of pestanas) {
     const activa = tab.dataset.captura === nombre;
     tab.setAttribute('aria-selected', String(activa));
