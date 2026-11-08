@@ -13,6 +13,10 @@
  * conjunto a partir de pacientes.csv antes de llamar a esta función.
  */
 
+// Máximo de caracteres de un ID de paciente. Coincide con la columna
+// pacientes.id VARCHAR(20) de sql/crear_base.sql; pacientesRepoSql.js usa la misma constante.
+const LONGITUD_MAXIMA_ID = 20;
+
 const SANGRE_VALIDAS = new Set(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']);
 
 /**
@@ -22,6 +26,15 @@ const SANGRE_VALIDAS = new Set(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
  */
 function validarRegistro(arbolReg, idsExistentes) {
   const { id, edad, sexo, sangre } = arbolReg;
+
+  // ID demasiado largo (antes que el duplicado): se muestra recortado para no
+  // inundar la bitácora con un texto enorme.
+  if (typeof id === 'string' && id.length > LONGITUD_MAXIMA_ID) {
+    return {
+      ok: false,
+      mensaje: `Error Semántico: identificador de paciente demasiado largo, máximo ${LONGITUD_MAXIMA_ID} caracteres (${id.slice(0, LONGITUD_MAXIMA_ID)}…).`,
+    };
+  }
 
   // ID vacío o duplicado. El parser ya garantiza que "id" no llegue vacío
   // (el token ID exige al menos un dígito después de la P), así que en la
@@ -59,4 +72,4 @@ function validarRegistro(arbolReg, idsExistentes) {
   return { ok: true };
 }
 
-module.exports = { validarRegistro, SANGRE_VALIDAS };
+module.exports = { validarRegistro, SANGRE_VALIDAS, LONGITUD_MAXIMA_ID };

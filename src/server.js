@@ -1,9 +1,10 @@
 'use strict';
 
 const path = require('path');
+require('dotenv').config({ quiet: true });
 const express = require('express');
 
-const { crearPacientesRepo } = require('./storage/pacientesRepo');
+const { seleccionarRepo, sinContrasena } = require('./storage/seleccionarRepo');
 const { crearBitacora } = require('./storage/bitacoraRepo');
 const { crearInterpreter } = require('./interpreter');
 
@@ -32,14 +33,11 @@ const RUTA_BITACORAS = path.join(RUTA_DATOS, 'bitacoras');
 const RUTA_PUBLIC = path.join(__dirname, '..', 'public');
 const PUERTO = process.env.PUERTO || 3000;
 
-const pacientesRepo = crearPacientesRepo(RUTA_PACIENTES);
-const bitacora = crearBitacora(RUTA_BITACORAS, new Date());
-// Fecha de arranque (hora local), solo informativa: encabezado de la bitácora
-// y /api/estado. Las revisiones usan la fecha y hora de cada instrucción.
-const fechaProcesamiento = bitacora.fechaProcesamiento;
-// La fecha y hora de cada revisión se toman por instrucción (hora local),
-// no al arrancar: el interpreter recibe el reloj.
-const interpreter = crearInterpreter({ pacientesRepo, ahora: () => new Date() });
+// Se asignan en iniciar(): el repositorio (CSV o SQL) se elige con REPOSITORIO
+// en el .env y la conexión SQL es asíncrona.
+let bitacora;
+let fechaProcesamiento;
+let interpreter;
 
 // Contadores en memoria para el resumen en vivo del frontend. Se reinician
 // junto con el servidor, igual que la bitácora.
@@ -71,7 +69,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static(RUTA_PUBLIC));
 
-app.post('/api/procesar', (req, res) => {
+app.post('/api/procesar', async (req, res) => {
   const { texto, numeroLinea } = req.body || {};
 
   if (typeof texto !== 'string' || texto.trim() === '') {
@@ -83,8 +81,14 @@ app.post('/api/procesar', (req, res) => {
 
   let salida;
   try {
-    salida = interpreter.procesarLinea(texto, numeroLinea);
+    salida = await interpreter.procesarLinea(texto, numeroLinea);
   } catch (err) {
+    if (err && err.name === 'ErrorBaseDatos') {
+      // Detalle técnico solo en consola (sin contraseña); al cliente, mensaje genérico.
+      const causa = err.causa || {};
+      console.error(`[BD] ${err.message} (${causa.code || 'sin código'}): ${sinContrasena(causa.message || '')}`);
+      return res.status(503).json({ error: 'No se pudo acceder a la base de datos. Intenta de nuevo en un momento.' });
+    }
     // Un error aquí es un bug del intérprete, no un dato inválido del
     // usuario (esos ya se manejan como RECHAZADO dentro de interpreter.js).
     console.error('Error inesperado al procesar la instrucción:', err);
@@ -109,7 +113,35 @@ app.get('/api/estado', (req, res) => {
   });
 });
 
-app.listen(PUERTO, () => {
-  console.log(`Cardio Guard escuchando en http://localhost:${PUERTO}`);
-  console.log(`Bitácora de esta ejecución: ${bitacora.nombreArchivo}`);
+async function iniciar() {
+  const { repo: pacientesRepo, descripcion, cerrar } = await seleccionarRepo({ rutaCsv: RUTA_PACIENTES });
+  bitacora = crearBitacora(RUTA_BITACORAS, new Date());
+  // Fecha de arranque (hora local), solo informativa: encabezado de la bitácora
+  // y /api/estado. Las revisiones usan la fecha y hora de cada instrucción.
+  fechaProcesamiento = bitacora.fechaProcesamiento;
+  // La fecha y hora de cada revisión se toman por instrucción (hora local),
+  // no al arrancar: el interpreter recibe el reloj.
+  interpreter = crearInterpreter({ pacientesRepo, ahora: () => new Date() });
+
+  const servidor = app.listen(PUERTO, () => {
+    console.log(`Cardio Guard escuchando en http://localhost:${PUERTO}`);
+    console.log(descripcion);
+    console.log(`Bitácora de esta ejecución: ${bitacora.nombreArchivo}`);
+  });
+
+  // Ctrl+C: dejar de aceptar peticiones y cerrar el pool de conexión.
+  process.on('SIGINT', async () => {
+    servidor.close();
+    try {
+      await cerrar();
+    } catch (err) {
+      console.error('No se pudo cerrar la conexión limpiamente.');
+    }
+    process.exit(0);
+  });
+}
+
+iniciar().catch((err) => {
+  console.error('No se pudo iniciar el servidor:', sinContrasena(err && err.message ? err.message : err));
+  process.exit(1);
 });

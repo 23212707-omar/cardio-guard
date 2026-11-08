@@ -40,6 +40,14 @@ PUERTO=4000 npm start
   reinicia el servidor, se crea una bitácora nueva; las anteriores no se
   borran ni se sobrescriben.
 
+## Elegir dónde se guardan los pacientes (CSV o SQL Server)
+
+- Copia `.env.example` como `.env`. `REPOSITORIO=csv` (por defecto) usa `data/pacientes.csv`; `REPOSITORIO=sql` usa SQL Server Express (`SQLEXPRESS`, TCP 1433, autenticación mixta). Solo se guarda la última revisión de cada paciente.
+- Crear la base en SSMS: ejecuta `sql/crear_base.sql` y luego `sql/crear_usuario.sql` (cambia antes `CAMBIAR_ESTA_CONTRASENA`). El usuario `cardio_guard_app` solo lee y escribe datos.
+- En `.env`: `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` y, si hace falta, `DB_ENCRYPT` / `DB_TRUST_SERVER_CERTIFICATE`. El `.env` no se sube a git.
+- Si `REPOSITORIO=sql` y no hay conexión, el servidor avisa qué variable revisar y termina (no usa el CSV de respaldo). Al arrancar muestra el repositorio activo.
+- `node tests/storage.sql.manual.js` se omite si no hay SQL Server. Para correrlo, define `DB_TEST_USER` y `DB_TEST_PASSWORD` en `.env`: ese usuario necesita permiso para **crear bases de datos** (`cardio_guard_app` no lo tiene). El test crea y borra su propia base `cardio_guard_test`; nunca toca `cardio_guard`.
+
 ## Estructura del proyecto
 
 ```
@@ -53,6 +61,8 @@ src/
     clasificacion.js        categorías de presión/frecuencia y comparación
   storage/
     pacientesRepo.js        lee y escribe pacientes.csv
+    pacientesRepoSql.js     pacientes en SQL Server (mssql)
+    seleccionarRepo.js      elige csv o sql según REPOSITORIO
     bitacoraRepo.js         crea y escribe la bitácora de cada ejecución
   interpreter.js             junta todo lo anterior, instrucción por instrucción
   server.js                  servidor Express, expone el intérprete como API
@@ -76,6 +86,7 @@ node tests/parser.manual.js
 node tests/afd.manual.js
 node tests/semantics.manual.js
 node tests/storage.manual.js
+node tests/storage.sql.manual.js   # se omite sin SQL Server
 node tests/interpreter.manual.js   # prueba de integración completa
 ```
 
