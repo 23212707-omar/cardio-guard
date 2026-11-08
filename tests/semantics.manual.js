@@ -146,4 +146,24 @@ console.log('\n=== esDatoSospechoso / describirRevision ===');
   const d = describirRevision({ sistolica: 260, diastolica: 70, frecuencia: 50 });
   ok('260/70, 50 lpm -> Crisis + sospechoso + Bradicardia',
     d.crisis && d.datoSospechoso && d.frecuencia.nombre === 'Bradicardia');
+
+  // Alerta por frecuencia severa (< 40 / > 150)
+  const { alertaFrecuencia, ALERTA_FRECUENCIA: AF } = require('../src/semantics/clasificacion');
+  ok('alertaFrecuencia(39) = BRADICARDIA_SEVERA', alertaFrecuencia(39) === AF.BRADICARDIA_SEVERA);
+  ok('alertaFrecuencia(40) = null', alertaFrecuencia(40) === null);
+  ok('alertaFrecuencia(150) = null', alertaFrecuencia(150) === null);
+  ok('alertaFrecuencia(151) = TAQUICARDIA_SEVERA', alertaFrecuencia(151) === AF.TAQUICARDIA_SEVERA);
+  ok('alertaFrecuencia(no número) = null',
+    alertaFrecuencia(undefined) === null && alertaFrecuencia('160') === null && alertaFrecuencia(NaN) === null);
+  const pn = clasificarPresion(120, 80);
+  ok('determinarAviso con 2 argumentos sigue igual (120/80 -> NORMAL)', determinarAvisoClasificacion(pn, false) === 'NORMAL');
+  ok('determinarAviso: alerta de frecuencia sola -> ALERTA', determinarAvisoClasificacion(pn, false, AF.TAQUICARDIA_SEVERA) === 'ALERTA');
+  ok('determinarAviso: alerta de frecuencia + sospechoso -> ALERTA_Y_ADVERTENCIA',
+    determinarAvisoClasificacion(pn, true, AF.BRADICARDIA_SEVERA) === 'ALERTA_Y_ADVERTENCIA');
+  ok('determinarAviso: sospechoso sin alerta -> ADVERTENCIA', determinarAvisoClasificacion(pn, true, null) === 'ADVERTENCIA');
+  const dt = describirRevision({ sistolica: 120, diastolica: 80, frecuencia: 160 });
+  ok('describirRevision 120/80, 160 -> alertaFrecuencia TAQUICARDIA_SEVERA y crisis false',
+    dt.alertaFrecuencia === AF.TAQUICARDIA_SEVERA && dt.crisis === false);
+  ok('describirRevision: crisis con frecuencia normal -> alertaFrecuencia null',
+    describirRevision({ sistolica: 190, diastolica: 125, frecuencia: 75 }).alertaFrecuencia === null);
 }

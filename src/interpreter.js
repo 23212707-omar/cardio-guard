@@ -13,6 +13,8 @@ const {
   determinarAvisoClasificacion,
   compararConUltimaRevision,
   describirRevision,
+  alertaFrecuencia,
+  ALERTA_FRECUENCIA,
   CAUSA_SOSPECHOSO,
 } = require('./semantics/clasificacion');
 
@@ -41,6 +43,7 @@ const RECOMENDACIONES_PRESION = {
   'Hipertensión grado 3': 'Se requiere valoración médica urgente.',
   // "Crisis hipertensiva" no lleva recomendación genérica: ya se muestra
   // la alerta de protocolo de emergencia, que es lo relevante en ese caso.
+  // La alerta por frecuencia severa tampoco lleva recomendación de texto.
 };
 
 const TEXTO_ESTADO = {
@@ -128,6 +131,8 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     if (!desc) return 'sin revisiones previas';
     const avisos = [];
     if (desc.crisis) avisos.push('[CRISIS HIPERTENSIVA]');
+    if (desc.alertaFrecuencia === ALERTA_FRECUENCIA.TAQUICARDIA_SEVERA) avisos.push('[TAQUICARDIA SEVERA]');
+    if (desc.alertaFrecuencia === ALERTA_FRECUENCIA.BRADICARDIA_SEVERA) avisos.push('[BRADICARDIA SEVERA]');
     if (desc.datoSospechoso) avisos.push('[DATO SOSPECHOSO]');
     return `${rev.sistolica}/${rev.diastolica} mmHg, ${rev.frecuencia} lpm (${rev.fecha}) — ` +
       `${desc.presion.nombre}, FC ${desc.frecuencia.nombre}` +
@@ -243,7 +248,8 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     afd.transitar(EVENTO.SEMANTICA_LECTURA_OK);
 
     const categoriaPresion = clasificarPresion(arbol.sistolica, arbol.diastolica);
-    const aviso = determinarAvisoClasificacion(categoriaPresion, validacion.datoSospechoso);
+    const alertaFrec = alertaFrecuencia(arbol.frecuencia);
+    const aviso = determinarAvisoClasificacion(categoriaPresion, validacion.datoSospechoso, alertaFrec);
     afd.transitar(EVENTO[`CLASIFICACION_${aviso}`]);
 
     const comparacion = compararConUltimaRevision(
@@ -263,8 +269,18 @@ function crearInterpreter({ pacientesRepo, ahora }) {
 
     const detalles = [];
 
+    // Bloque de ALERTA ROJA: una línea de motivo por cada causa (crisis
+    // hipertensiva y/o frecuencia severa) y, al final, UNA sola línea de
+    // protocolo aunque haya varios motivos.
     if (aviso === 'ALERTA' || aviso === 'ALERTA_Y_ADVERTENCIA') {
-      detalles.push(`¡ALERTA ROJA! Crisis Hipertensiva detectada (${arbol.sistolica}/${arbol.diastolica} mmHg).`);
+      if (categoriaPresion.nombre === 'Crisis hipertensiva') {
+        detalles.push(`¡ALERTA ROJA! Crisis Hipertensiva detectada (${arbol.sistolica}/${arbol.diastolica} mmHg).`);
+      }
+      if (alertaFrec === ALERTA_FRECUENCIA.TAQUICARDIA_SEVERA) {
+        detalles.push(`¡ALERTA ROJA! Taquicardia severa detectada (${arbol.frecuencia} lpm).`);
+      } else if (alertaFrec === ALERTA_FRECUENCIA.BRADICARDIA_SEVERA) {
+        detalles.push(`¡ALERTA ROJA! Bradicardia severa detectada (${arbol.frecuencia} lpm).`);
+      }
       detalles.push('Disparar protocolo de emergencia médica inmediata.');
     }
     // Una línea "Dato sospechoso:" por cada causa.
@@ -306,7 +322,7 @@ function crearInterpreter({ pacientesRepo, ahora }) {
     return construirResultado({
       afd, numeroLinea, encabezado, instruccion: 'LECTURA',
       detalles,
-      extra: { id: arbol.id, clasificacionPresion: categoriaPresion, comparacion },
+      extra: { id: arbol.id, clasificacionPresion: categoriaPresion, alertaFrecuencia: alertaFrec, comparacion },
     });
   }
 
